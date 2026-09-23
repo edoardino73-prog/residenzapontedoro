@@ -111,7 +111,7 @@
         
         /* Modale Firma Canvas */
         #modal-firma .modal-content { border-top: 8px solid #3498db; text-align: center; }
-        #canvas-firma { border: 2px dashed #bdc3c7; border-radius: 8px; background: #f8fafc; cursor: crosshair; touch-action: none; margin: 15px auto; max-width: 100%; }
+        #canvas-firma { border: 2px dashed #bdc3c7; border-radius: 8px; background: #f8f9fa; cursor: crosshair; touch-action: none; margin: 15px auto; max-width: 100%; }
         
         #modal-visualizzatore .modal-content { max-width: 95%; width: 1000px; height: 90vh; display: flex; flex-direction: column; border-top: 8px solid #2ecc71; padding: 20px; }
         #modal-scheda-terapia .modal-content { max-width: 800px; border-top: 8px solid #e67e22; background: #fdfefe; }
@@ -2685,7 +2685,7 @@
             }
         }
 
-        /* --- MOTORE LOGICO QR CODE & LOCANDINA (BLINDATO PER file:// E ONLINE) --- */
+        /* --- MOTORE LOGICO QR CODE & LOCANDINA (ESPLICITAMENTE ESPOSTO SU WINDOW) --- */
         function getSafeSurveyUrl() {
             let salvato = "";
             try {
