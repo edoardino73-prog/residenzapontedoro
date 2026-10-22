@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>La tua opinione - Residenza Ponte D'Oro</title>
+
+    <!-- Solo app + auth + database: questa pagina SCRIVE un voto, non legge nulla -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root {
+            --teal: #1793a6;
+            --teal-dark: #0f6e7d;
+            --ink: #1f2d3a;
+            --muted: #5b6b7a;
+            --line: #d5dde4;
+            --bg: #f1f5f8;
+            --star: #f39c12;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.5; }
+        main { max-width: 560px; margin: 0 auto; padding: 20px 16px 48px; }
+        header { padding: 8px 0 18px; }
+        header .struttura { margin: 0; font-size: 14px; font-weight: 600; color: var(--teal-dark); }
+        header h1 { margin: 4px 0 6px; font-size: 26px; line-height: 1.2; }
+        header p { margin: 0; color: var(--muted); font-size: 15px; }
+
+        form, .esito { background: #fff; border-radius: 10px; padding: 20px 18px; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+        fieldset { border: 0; margin: 0 0 18px; padding: 0; }
+        legend { font-weight: 600; font-size: 16px; padding: 0; margin-bottom: 8px; }
+
+        .voti { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .voti input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+        .voti label {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 52px; border: 1.5px solid var(--line); border-radius: 8px; cursor: pointer;
+            font-size: 13px; color: var(--muted); background: #fff; user-select: none;
+        }
+        .voti label span { font-size: 20px; line-height: 1; filter: grayscale(1); opacity: .45; }
+        .voti input:checked + label { border-color: var(--star); background: #fff7e6; color: var(--ink); font-weight: 600; }
+        .voti input:checked + label span { filter: none; opacity: 1; }
+        .voti input:focus-visible + label { outline: 3px solid var(--teal); outline-offset: 2px; }
+        .scala { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+        .campo { display: flex; flex-direction: column; margin-bottom: 16px; }
+        .campo label { font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+        .campo small { color: var(--muted); font-weight: 400; }
+        input[type=text], textarea { width: 100%; padding: 11px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; }
+        input[type=text]:focus-visible, textarea:focus-visible { outline: 3px solid var(--teal); outline-offset: 1px; border-color: var(--teal); }
+
+        .trap { position: absolute; left: -9999px; height: 0; overflow: hidden; }
+
+        button { width: 100%; padding: 14px; border: 0; border-radius: 8px; background: var(--teal); color: #fff; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+        button:hover { background: var(--teal-dark); }
+        button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+        button:disabled { background: #94a3b8; cursor: default; }
+
+        .errore { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; background: #fdecea; color: #8a1f17; font-size: 14px; }
+        .esito { text-align: center; padding: 36px 20px; }
+        .esito h2 { margin: 0 0 8px; font-size: 22px; }
+        .esito p { margin: 0; color: var(--muted); }
+        [hidden] { display: none !important; }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .voti label { transition: background .15s, border-color .15s; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <p class="struttura">Residenza Ponte D'Oro</p>
+        <h1>La tua opinione conta</h1>
+        <p>Dai un voto da 1 a 5 a ogni servizio. Ci vuole un minuto.</p>
+    </header>
+
+    <form id="form" novalidate>
+        <p class="errore" id="errore" role="alert" hidden></p>
+
+        <div id="gruppi"></div>
+
+        <div class="campo">
+            <label for="soggetto">Il tuo nome <small>(facoltativo)</small></label>
+            <input type="text" id="soggetto" maxlength="120" autocomplete="name">
+        </div>
+
+        <div class="campo">
+            <label for="note">Suggerimenti o segnalazioni <small>(facoltativo)</small></label>
+            <textarea id="note" rows="3" maxlength="500"></textarea>
+        </div>
+
+        <!-- campo trappola per i bot: le persone non lo vedono -->
+        <div class="trap" aria-hidden="true">
+            <label>Sito web <input type="text" id="sito" tabindex="-1" autocomplete="off"></label>
+        </div>
+
+        <button type="submit" id="invia">Invia il questionario</button>
+    </form>
+
+    <section class="esito" id="esito" hidden>
+        <h2>Grazie, abbiamo ricevuto il tuo voto</h2>
+        <p>Le tue risposte ci aiutano a migliorare la vita in struttura.</p>
+    </section>
+</main>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyD2a7aK5Ze4mFF7ku4eFiz4or1pImHXoiA",
+        authDomain: "residenza-ponte-d-oro.firebaseapp.com",
+        databaseURL: "https://residenza-ponte-d-oro-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "residenza-ponte-d-oro",
+        storageBucket: "residenza-ponte-d-oro.firebasestorage.app",
+        messagingSenderId: "646708586773",
+        appId: "1:646708586773:web:a9d1956abdf72ace4ba11c"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const fbDb = firebase.database();
+
+    // stesse chiavi e stesse etichette del form di gestione
+    const AREE = [
+        { key: 'cibo',      label: 'Ristorazione' },
+        { key: 'igiene',    label: 'Igiene' },
+        { key: 'personale', label: 'Personale' },
+        { key: 'attivita',  label: 'Animazione' },
+        { key: 'struttura', label: 'Struttura' }
+    ];
+
+    const gruppi = document.getElementById('gruppi');
+    AREE.forEach(a => {
+        const fs = document.createElement('fieldset');
+        const lg = document.createElement('legend');
+        lg.textContent = a.label;
+        const box = document.createElement('div');
+        box.className = 'voti';
+        for (let n = 1; n <= 5; n++) {
+            const inp = document.createElement('input');
+            inp.type = 'radio'; inp.name = a.key; inp.value = String(n); inp.id = `${a.key}_${n}`;
+            const lab = document.createElement('label');
+            lab.htmlFor = inp.id;
+            const st = document.createElement('span'); st.textContent = '⭐';
+            lab.append(st, document.createTextNode(String(n)));
+            box.append(inp, lab);
+        }
+        const scala = document.createElement('div');
+        scala.className = 'scala';
+        scala.innerHTML = '<span>Scarso</span><span>Ottimo</span>';
+        fs.append(lg, box, scala);
+        gruppi.appendChild(fs);
+    });
+
+    // autenticazione anonima: serve solo per poter scrivere il voto
+    let pronto = false;
+    // Se sul dispositivo c'è già una sessione (es. personale che prova il QR) la si usa: un nuovo accesso anonimo la sostituirebbe
+    let avviato = false;
+    firebase.auth().onAuthStateChanged(u => {
+        pronto = !!u;
+        if (!u && !avviato) {
+            avviato = true;
+            firebase.auth().signInAnonymously().catch(e => console.error('Auth:', e));
+        }
+    });
+
+    function dataLocale() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    function mostraErrore(msg) {
+        const e = document.getElementById('errore');
+        e.textContent = msg; e.hidden = !msg;
+    }
+    function fine() {
+        document.getElementById('form').hidden = true;
+        document.getElementById('esito').hidden = false;
+        window.scrollTo(0, 0);
+    }
+
+    document.getElementById('form').addEventListener('submit', ev => {
+        ev.preventDefault();
+        mostraErrore('');
+
+        // bot: finge successo senza scrivere nulla
+        if (document.getElementById('sito').value) return fine();
+
+        const voti = {};
+        for (const a of AREE) {
+            const sel = document.querySelector(`input[name="${a.key}"]:checked`);
+            if (!sel) return mostraErrore(`Manca il voto per: ${a.label}.`);
+            voti[a.key] = sel.value; // "1".."5"
+        }
+        if (!pronto) return mostraErrore('Connessione in corso, riprova tra un secondo.');
+
+        const btn = document.getElementById('invia');
+        btn.disabled = true; btn.textContent = 'Invio in corso...';
+
+        const record = {
+            id: Date.now(),
+            data: dataLocale(),
+            soggetto: document.getElementById('soggetto').value.trim().slice(0, 120) || 'Anonimo',
+            ...voti,
+            note: document.getElementById('note').value.trim().slice(0, 500) || '-'
+        };
+
+        fbDb.ref('gestionale_db/surveys/' + record.id).set(record)
+            .then(fine)
+            .catch(err => {
+                console.error(err);
+                mostraErrore("Non siamo riusciti a inviare il questionario. Controlla la connessione e riprova.");
+                btn.disabled = false; btn.textContent = 'Invia il questionario';
+            });
+    });
+</script>
+</body>
+</html>

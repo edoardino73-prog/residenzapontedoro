@@ -132,6 +132,10 @@
             messagingSenderId: "646708586773",
             appId: "1:646708586773:web:a9d1956abdf72ace4ba11c"
         };
+        // Data odierna nel fuso del browser: toISOString() usa UTC e, vicino a mezzanotte, restituisce il giorno sbagliato
+        function oggiLocale(d = new Date()) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
         firebase.initializeApp(firebaseConfig);
         const fbDb = firebase.database();
 
@@ -145,9 +149,10 @@
         }
         function formattaData(iso) { if(!iso) return "-"; const p = iso.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
 
-        firebase.auth().signInAnonymously().catch(e => console.error(e));
+        // Accesso riservato al personale: senza il login della struttura si torna a index.html
+        firebase.auth().onAuthStateChanged(u => { if (!u || u.isAnonymous) window.location.replace('index.html'); });
         firebase.auth().onAuthStateChanged(user => {
-            if(user) {
+            if(user && !user.isAnonymous) {
                 fbDb.ref('gestionale_db').on('value', snap => {
                     const d = snap.val() || {};
                     db.ospiti = forceArray(d.ospiti);
@@ -160,7 +165,7 @@
         });
 
         document.addEventListener("DOMContentLoaded", () => {
-            document.getElementById('par_data').value = new Date().toISOString().split('T')[0];
+            document.getElementById('par_data').value = oggiLocale();
         });
 
         function popolaSelettoreOspiti() {

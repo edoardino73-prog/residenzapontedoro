@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f6f9; padding: 25px; color: #2c3e50; }
@@ -29,6 +30,10 @@
         th { background-color: #f8f9fa; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center; }
         .modal-content { background:white; padding:25px; border-radius:8px; max-width:480px; width:90%; text-align:center; }
+        .medie { display:flex; gap:10px; flex-wrap:wrap; margin:15px 0 5px; }
+        .media { flex:1; min-width:110px; background:#fff8e6; border:1px solid #f3d9a4; border-radius:6px; padding:8px; text-align:center; }
+        .media strong { display:block; font-size:20px; color:#b9770e; }
+        .media small { color:#64748b; }
         #stampa-locandina { display: none; }
         @media print {
             .no-print { display: none !important; }
@@ -75,17 +80,20 @@
             </div>
         </div>
 
+        <div class="medie" id="medie"></div>
+
         <table>
-            <thead><tr><th>Data</th><th>Soggetto</th><th>Cibo</th><th>Igiene</th><th>Staff</th><th>Attività</th><th>Comfort</th><th>Note</th><th>Azioni</th></tr></thead>
+            <thead><tr><th>Data</th><th>Soggetto</th><th>Ristorazione</th><th>Igiene</th><th>Personale</th><th>Animazione</th><th>Struttura</th><th>Note</th><th>Azioni</th></tr></thead>
             <tbody id="tabella-surveys"></tbody>
         </table>
     </div>
 
     <!-- MODALE QR -->
-    <div id="modal-qr" class="modal">
+    <div id="modal-qr" class="modal no-print">
         <div class="modal-content">
             <h3 style="margin-top:0;">QR Code Questionario Reception</h3>
-            <img id="qr-img" src="" style="width:200px; height:200px; margin:10px auto; display:block;">
+            <img id="qr-img" src="" alt="QR code del questionario" style="width:200px; height:200px; margin:10px auto; display:block;">
+            <p id="qr-url" style="font-size:11px; color:#64748b; word-break:break-all; margin:0;"></p>
             <div style="display:flex; gap:8px; justify-content:center; margin-top:15px;">
                 <button class="btn btn-warning btn-sm" onclick="stampaLocandina()">🖨️ Stampa Cartello Reception</button>
                 <button class="btn btn-dark btn-sm" onclick="document.getElementById('modal-qr').style.display='none'">Chiudi</button>
@@ -112,11 +120,43 @@
             if (!data) return [];
             return (Array.isArray(data) ? data : Object.values(data).filter(item => item !== null)).sort((a,b) => b.id - a.id);
         }
-        function formattaData(iso) { if(!iso) return "-"; const p = iso.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+                function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        // Voto sempre intero 1-5: un valore anomalo nel DB non deve rompere la tabella
+        // Data odierna nel fuso del browser (toISOString usa UTC e vicino a mezzanotte dà il giorno sbagliato)
+        function oggiLocale() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        function stars(n) { const v = parseInt(n, 10); return (v >= 1 && v <= 5) ? '⭐'.repeat(v) : '—'; }
 
-        firebase.auth().signInAnonymously().catch(e => console.error(e));
+        const AREE = [['cibo','Ristorazione'], ['igiene','Igiene'], ['personale','Personale'], ['attivita','Animazione'], ['struttura','Struttura']];
+        function renderMedie() {
+            const box = document.getElementById('medie');
+            if (dbSurveys.length === 0) { box.innerHTML = ''; return; }
+            box.innerHTML = AREE.map(([k, label]) => {
+                const v = dbSurveys.map(s => parseInt(s[k], 10)).filter(n => n >= 1 && n <= 5);
+                const media = v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : '-';
+                return `<div class="media"><small>${label}</small><strong>${media}</strong><small>${v.length} ${v.length === 1 ? 'voto' : 'voti'}</small></div>`;
+            }).join('');
+        }
+        function formattaData(iso) { const p = String(iso || '').split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : "-"; }
+
+        // URL della pagina PUBBLICA (solo invio voto), mai quella di gestione
+        function urlQuestionarioPubblico() { return new URL('questionario_pubblico.html', window.location.href).href; }
+        function qrDataUrl(text, size) {
+            const box = document.createElement('div');
+            new QRCode(box, { text: text, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+            const canvas = box.querySelector('canvas');
+            return canvas ? canvas.toDataURL('image/png') : '';
+        }
+
+        /* --- AUTENTICAZIONE ANONIMA OBBLIGATORIA (REGOLE FIREBASE v8) --- */
+        // Accesso riservato al personale: senza il login della struttura si torna a index.html
+        firebase.auth().onAuthStateChanged(u => { if (!u || u.isAnonymous) window.location.replace('index.html'); });
         firebase.auth().onAuthStateChanged(user => {
-            if(user) {
+            if(user && !user.isAnonymous) {
                 fbDb.ref('gestionale_db/surveys').on('value', snap => {
                     dbSurveys = forceArray(snap.val());
                     renderTabella();
@@ -125,8 +165,12 @@
         });
 
         document.addEventListener("DOMContentLoaded", () => {
-            document.getElementById('sv_data').value = new Date().toISOString().split('T')[0];
+            document.getElementById('sv_data').value = oggiLocale();
         });
+
+        function votoValido(id) {
+            return String(Math.min(5, Math.max(1, parseInt(document.getElementById(id).value, 10) || 3)));
+        }
 
         function salvaSurvey() {
             const dataV = document.getElementById('sv_data').value;
@@ -136,11 +180,11 @@
                 id: Date.now(),
                 data: dataV,
                 soggetto: document.getElementById('sv_soggetto').value.trim() || "Anonimo",
-                cibo: document.getElementById('sv_voto_cibo').value,
-                igiene: document.getElementById('sv_voto_igiene').value,
-                personale: document.getElementById('sv_voto_personale').value,
-                attivita: document.getElementById('sv_voto_attivita').value,
-                struttura: document.getElementById('sv_voto_struttura').value,
+                cibo: votoValido('sv_voto_cibo'),
+                igiene: votoValido('sv_voto_igiene'),
+                personale: votoValido('sv_voto_personale'),
+                attivita: votoValido('sv_voto_attivita'),
+                struttura: votoValido('sv_voto_struttura'),
                 note: document.getElementById('sv_note').value.trim() || "-"
             };
 
@@ -148,54 +192,65 @@
                 alert("✅ Questionario salvato!");
                 document.getElementById('sv_soggetto').value = '';
                 document.getElementById('sv_note').value = '';
+            }).catch(err => {
+                console.error(err);
+                alert("❌ Salvataggio non riuscito: " + err.message + "\nLa scheda non è stata registrata, riprova.");
             });
         }
 
         function renderTabella() {
             const tbody = document.getElementById('tabella-surveys');
             tbody.innerHTML = '';
+            renderMedie();
             if(dbSurveys.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:15px; color:#64748b;">Nessun questionario registrato.</td></tr>';
                 return;
             }
             dbSurveys.forEach(s => {
                 tbody.innerHTML += `<tr>
-                    <td>${formattaData(s.data)}</td>
-                    <td><strong>${s.soggetto}</strong></td>
-                    <td>${'⭐'.repeat(s.cibo)}</td>
-                    <td>${'⭐'.repeat(s.igiene)}</td>
-                    <td>${'⭐'.repeat(s.personale)}</td>
-                    <td>${'⭐'.repeat(s.attivita)}</td>
-                    <td>${'⭐'.repeat(s.struttura)}</td>
-                    <td><small>${s.note}</small></td>
-                    <td><button class="btn btn-danger btn-sm" onclick="eliminaSurvey(${s.id})">🗑️</button></td>
+                    <td>${esc(formattaData(s.data))}</td>
+                    <td><strong>${esc(s.soggetto)}</strong></td>
+                    <td>${stars(s.cibo)}</td>
+                    <td>${stars(s.igiene)}</td>
+                    <td>${stars(s.personale)}</td>
+                    <td>${stars(s.attivita)}</td>
+                    <td>${stars(s.struttura)}</td>
+                    <td><small>${esc(s.note)}</small></td>
+                    <td><button class="btn btn-danger btn-sm" onclick="eliminaSurvey(${Number(s.id) || 0})">🗑️</button></td>
                 </tr>`;
             });
         }
 
         function eliminaSurvey(id) {
-            if(confirm("Eliminare questa scheda?")) fbDb.ref('gestionale_db/surveys/' + id).remove();
+            if(confirm("Eliminare questa scheda?")) fbDb.ref('gestionale_db/surveys/' + id).remove()
+                .catch(err => alert("❌ Eliminazione non riuscita: " + err.message));
         }
 
         function apriModalQR() {
-            const url = window.location.href;
-            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+            const url = urlQuestionarioPubblico();
+            if (!/^https?:$/.test(window.location.protocol)) {
+                alert("Questa pagina è aperta da file locale: il QR non sarebbe raggiungibile dai telefoni. Apri il gestionale dall'indirizzo online (https://...) e riprova.");
+                return;
+            }
+            document.getElementById('qr-img').src = qrDataUrl(url, 200);
+            document.getElementById('qr-url').textContent = url;
             document.getElementById('modal-qr').style.display = 'flex';
         }
 
-        function stampaLocandina() {
-            const url = window.location.href;
-            const qr = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+        async function stampaLocandina() {
+            const qr = qrDataUrl(urlQuestionarioPubblico(), 300);
             const overlay = document.getElementById('stampa-locandina');
             overlay.innerHTML = `
                 <div style="text-align:center; padding:40px; font-family:'Segoe UI', sans-serif;">
                     <h1 style="color:#1793a6;">RESIDENZA PONTE D'ORO</h1>
                     <h2>La tua opinione è importante per noi</h2>
                     <p>Inquadra il codice QR con lo smartphone per esprimere il tuo giudizio sui servizi della struttura.</p>
-                    <img src="${qr}" style="width:260px; height:260px; margin:20px auto; border:4px solid #333; border-radius:10px;">
+                    <img id="qr-stampa" alt="QR code del questionario" src="${qr}" style="width:260px; height:260px; margin:20px auto; border:4px solid #333; border-radius:10px;">
                     <p><small>La compilazione è rapida e completamente anonima.</small></p>
                 </div>
             `;
+            document.getElementById('modal-qr').style.display = 'none';
+            try { await document.getElementById('qr-stampa').decode(); } catch (e) { /* si stampa comunque */ }
             window.print();
         }
     </script>

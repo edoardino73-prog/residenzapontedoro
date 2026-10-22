@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lettera Dimissioni/Trasferimento</title>
+    
+    <!-- Librerie Firebase v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        body { font-family: 'Times New Roman', serif; background-color: #f1f5f9; color: #000; margin: 0; padding: 20px; font-size: 14px; line-height: 1.5; }
+        .page { background: white; max-width: 800px; margin: 0 auto; padding: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 10px; margin-bottom: 30px; }
+        .header h1 { margin: 0; font-size: 22px; color: #0f766e; text-transform: uppercase; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; }
+        
+        .oggetto { font-weight: bold; font-size: 16px; margin-bottom: 25px; text-decoration: underline; }
+        
+        .paziente-info { margin-bottom: 30px; padding: 15px; border: 1px solid #cbd5e1; background: #f8fafc; }
+        .paziente-info p { margin: 5px 0; }
+
+        .section-title { font-weight: bold; font-size: 15px; margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+        th { background-color: #f1f5f9; }
+
+        .note-box { margin-top: 12px; }
+        .note-box label { display: block; font-weight: bold; margin-bottom: 4px; }
+        .note-box small { font-weight: normal; color: #64748b; }
+        .note-box textarea { width: 100%; box-sizing: border-box; min-height: 70px; padding: 8px; font: inherit; border: 1px dashed #94a3b8; border-radius: 4px; resize: vertical; background: #fffef7; }
+
+        .firme { margin-top: 60px; display: flex; justify-content: space-between; text-align: center; }
+        .firme div { width: 40%; border-top: 1px solid #000; padding-top: 10px; }
+
+        .controls { text-align: center; margin-bottom: 20px; }
+        .btn { padding: 10px 20px; font-size: 16px; font-weight: bold; cursor: pointer; background: #0f766e; color: white; border: none; border-radius: 6px; }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .page { box-shadow: none; padding: 0; width: 100%; max-width: none; }
+            .controls, .link-allegato, .note-box small { display: none; }
+            .note-box textarea { border: none; background: none; padding: 0; resize: none; overflow: visible; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button class="btn" onclick="window.print()">🖨️ Stampa Lettera / Salva PDF</button>
+    </div>
+
+    <div class="page">
+        <div class="header">
+            <h1>Residenza Servita "Ponte D'Oro"</h1>
+            <p>Via Sardegna 10, Terni (TR) | USL Umbria 2</p>
+        </div>
+
+        <div style="text-align: right; margin-bottom: 20px;">
+            Data di emissione: <strong id="data-stampa"></strong>
+        </div>
+
+        <div class="oggetto" id="titolo-lettera">
+            OGGETTO: Lettera di Dimissione / Trasferimento
+        </div>
+
+        <div class="paziente-info">
+            <p><strong>Nome e Cognome:</strong> <span id="osp-nome">Caricamento...</span></p>
+            <p><strong>Codice Fiscale:</strong> <span id="osp-cf">-</span></p>
+            <p><strong>Data di Ingresso:</strong> <span id="osp-ingresso">-</span></p>
+            <p><strong id="lbl-uscita">Data di Dimissione/Trasferimento:</strong> <span id="osp-uscita">-</span></p>
+            <p><strong>Motivazione:</strong> <span id="osp-motivo">-</span></p>
+        </div>
+
+        <div class="section-title">1. Sintesi Clinico-Assistenziale al momento dell'uscita</div>
+        <p id="testo-sintesi">Durante la permanenza sono stati garantiti i protocolli di assistenza previsti dal P.A.I. e dalla normativa regionale vigente.</p>
+        <div class="note-box" id="note-box">
+            <label for="note-cliniche">Note cliniche <small>(facoltative: diagnosi, allergie, indicazioni per la struttura di destinazione. Compaiono nella stampa, non vengono salvate)</small></label>
+            <textarea id="note-cliniche" oninput="adattaAltezza(this)"></textarea>
+        </div>
+
+        <div class="section-title">2. Schema Terapeutico Farmacologico in Atto</div>
+        <p id="testo-terapia">Si riporta di seguito la terapia farmacologica registrata nel gestionale della struttura per l'ospite alla data di uscita:</p>
+        <table id="tabella-terapie">
+            <thead>
+                <tr>
+                    <th>Farmaco (Principio Attivo / Nome Commerciale)</th>
+                    <th>Posologia</th>
+                    <th>Fasce Orarie</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-terapie">
+                <tr><td colspan="3" style="text-align:center;">Ricerca terapia in corso...</td></tr>
+            </tbody>
+        </table>
+
+        <div class="section-title">3. Documentazione Clinica Allegata</div>
+        <p>Documentazione digitale registrata per l'ospite (copie ricette, referti):</p>
+        <ul id="lista-allegati">
+            <li>Nessun documento digitale registrato per questo ospite.</li>
+        </ul>
+
+        <div class="firme">
+            <div>
+                La Direzione Sanitaria<br>
+                (Timbro e Firma)
+            </div>
+            <div id="firma-ricevuta">
+                Firma per Ricevuta<br>
+                (Paziente o Familiare / Ente)
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2a7aK5Ze4mFF7ku4eFiz4or1pImHXoiA",
+            authDomain: "residenza-ponte-d-oro.firebaseapp.com",
+            databaseURL: "https://residenza-ponte-d-oro-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "residenza-ponte-d-oro"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const fbDb = firebase.database();
+
+        function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        // Negli allegati si accettano solo PDF/immagini incorporati o link https (Firebase Storage)
+        function safeUrl(u) { return /^(data:(application\/pdf|image\/)|https:\/\/)/i.test(String(u || '')) ? String(u) : '#'; }
+        function formattaIso(iso) {
+            const p = String(iso || '').split('-');
+            return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : '';
+        }
+        function adattaAltezza(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+
+        // Se la nota è vuota, in stampa sparisce anche il suo riquadro
+        window.addEventListener('beforeprint', () => {
+            const vuota = !document.getElementById('note-cliniche').value.trim();
+            document.getElementById('note-box').style.display = vuota ? 'none' : '';
+            adattaAltezza(document.getElementById('note-cliniche'));
+        });
+        window.addEventListener('afterprint', () => { document.getElementById('note-box').style.display = ''; });
+
+        document.getElementById('data-stampa').innerText = new Date().toLocaleDateString('it-IT');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const ospiteId = urlParams.get('id');
+
+        if(!ospiteId || !/^[0-9]+$/.test(ospiteId)) {
+            document.getElementById('osp-nome').innerText = "Errore: ospite non specificato o ID non valido";
+            document.getElementById('tbody-terapie').innerHTML = '<tr><td colspan="3" style="text-align:center;">-</td></tr>';
+        } else {
+            // L'ACCESSO RICHIEDE IL LOGIN DELLA STRUTTURA (vedi guardia sotto)
+            // Accesso riservato al personale: senza il login della struttura si torna a index.html
+            firebase.auth().onAuthStateChanged(user => {
+                if (!user || user.isAnonymous) { window.location.replace('index.html'); return; }
+                caricaDatiLettera();
+            });
+        }
+
+        function caricaDatiLettera() {
+            // Letture mirate: solo questo ospite e solo le sue terapie (non tutto il database)
+            const pOspite = fbDb.ref('gestionale_db/ospiti/' + ospiteId).once('value');
+            const pTerapie = fbDb.ref('gestionale_db/terapie').orderByChild('ospite_id').equalTo(String(ospiteId)).once('value');
+
+            Promise.all([pOspite, pTerapie]).then(([snapOsp, snapTer]) => {
+                const ospite = snapOsp.val();
+                const tabTer = document.getElementById('tbody-terapie');
+                tabTer.innerHTML = '';
+
+                if(!ospite) {
+                    document.getElementById('osp-nome').innerText = "Ospite non trovato nel database";
+                    tabTer.innerHTML = '<tr><td colspan="3" style="text-align:center;">-</td></tr>';
+                    return;
+                }
+
+                // 1. Dati ospite
+                const uscita = formattaIso(ospite.data_dimissione);
+                const motivo = ospite.motivo_dimissione || 'Trasferimento/Dimissione';
+                const decesso = motivo.toLowerCase().includes('decesso');
+
+                document.getElementById('osp-nome').innerText = ospite.nome || '-';
+                document.getElementById('osp-cf').innerText = ospite.cf || 'Non registrato';
+                document.getElementById('osp-ingresso').innerText = formattaIso(ospite.ingresso || ospite.data_ingresso) || '-';
+                document.getElementById('osp-uscita').innerText = uscita || 'Non registrata';
+                document.getElementById('osp-motivo').innerText = motivo;
+
+                const dataTxt = uscita ? `in data <strong>${esc(uscita)}</strong>` : 'alla data di emissione della presente';
+                if(decesso) {
+                    document.getElementById('titolo-lettera').innerText = "OGGETTO: Lettera di Trasferimento per Decesso";
+                    document.getElementById('lbl-uscita').innerText = "Data del Decesso:";
+                    document.getElementById('testo-sintesi').innerHTML =
+                        `Si comunica il decesso dell'ospite, avvenuto ${dataTxt}. Durante la permanenza sono stati garantiti i protocolli di assistenza previsti dal P.A.I. e dalla normativa regionale vigente.`;
+                    document.getElementById('testo-terapia').innerText =
+                        "Si riporta di seguito la terapia farmacologica registrata nel gestionale della struttura per l'ospite alla data del decesso:";
+                    document.getElementById('firma-ricevuta').innerHTML = "Firma per Ricevuta<br>(Familiare / Ente)";
+                } else {
+                    document.getElementById('testo-sintesi').innerHTML =
+                        `Il/la paziente è stato/a dimesso/a dalla scrivente struttura ${dataTxt}. Durante la permanenza sono stati garantiti i protocolli di assistenza previsti dal P.A.I. e dalla normativa regionale vigente.`;
+                }
+
+                // 2. Terapie: nel gestionale una terapia conclusa viene rimossa, quindi quelle presenti sono "in atto"
+                const raw = snapTer.val() || {};
+                const terapie = (Array.isArray(raw) ? raw : Object.values(raw))
+                    .filter(t => t && String(t.ospite_id) === String(ospiteId));
+
+                let htmlAllegati = '';
+                terapie.forEach(t => {
+                    tabTer.innerHTML += `<tr>
+                        <td><strong>${esc(t.farmaco)}</strong></td>
+                        <td>${esc(t.posologia)}</td>
+                        <td>${esc(Array.isArray(t.orari) ? t.orari.join(', ') : (t.orari || ''))}</td>
+                    </tr>`;
+
+                    // Tutti gli allegati della terapia (t.allegati), con t.file come compatibilità coi vecchi record
+                    let files = Array.isArray(t.allegati) ? t.allegati.filter(Boolean) : [];
+                    if(files.length === 0 && t.file && t.file.dati) files = [t.file];
+                    files.forEach(f => {
+                        if(!f || !f.dati) return;
+                        const url = safeUrl(f.dati);
+                        const link = url !== '#' ? ` <a class="link-allegato" href="${esc(url)}" target="_blank" rel="noopener">(apri)</a>` : '';
+                        htmlAllegati += `<li>${esc(f.nome || 'Allegato')} &ndash; ricetta/referto relativo a <em>${esc(t.farmaco)}</em>${link}</li>`;
+                    });
+                });
+
+                if(terapie.length === 0) {
+                    tabTer.innerHTML = '<tr><td colspan="3" style="text-align:center;">Nessuna terapia farmacologica registrata al momento dell\'uscita.</td></tr>';
+                }
+
+                // 3. Allegati
+                if(htmlAllegati !== '') {
+                    document.getElementById('lista-allegati').innerHTML = htmlAllegati;
+                }
+            }).catch(e => {
+                alert("Errore nel recupero dati: " + e.message);
+                console.error(e);
+            });
+        }
+    </script>
+</body>
+</html>

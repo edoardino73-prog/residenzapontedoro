@@ -17,13 +17,14 @@
             margin: 0; 
             background-color: #f1f5f9; 
             color: #1e293b; 
-            padding: 25px 20px;
         }
 
-        .main-container {
-            max-width: 1350px;
-            margin: 0 auto;
-        }
+        /* TOPBAR DI SISTEMA */
+        .topbar { background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .topbar-user { font-size: 13px; color: #475569; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .badge-ruolo { background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+
+        .main-container { max-width: 1350px; margin: 0 auto; padding: 0 20px 25px 20px; }
 
         /* HEADER E BARRA DI RICERCA */
         .search-toolbar {
@@ -38,69 +39,17 @@
             margin-bottom: 25px;
             flex-wrap: wrap;
         }
-        .search-input-box {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 8px 14px;
-            min-width: 280px;
-        }
-        .search-input-box input {
-            border: none;
-            outline: none;
-            width: 100%;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        .select-filtro {
-            padding: 9px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-size: 13.5px;
-            outline: none;
-            background: white;
-            color: #334155;
-            font-weight: 500;
-        }
-        .badge-presenti-count {
-            background: #f0fdf4;
-            color: #166534;
-            border: 1px solid #bbf7d0;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13.5px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-        .btn-home {
-            background: #0f766e;
-            color: white;
-            text-decoration: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: bold;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: 0.2s;
-        }
-        .btn-home:hover {
-            background: #115e59;
-        }
+        .search-input-box { flex: 1; display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 14px; min-width: 280px; }
+        .search-input-box input { border: none; outline: none; width: 100%; font-size: 14px; font-family: inherit; }
+        .select-filtro { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; outline: none; background: white; color: #334155; font-weight: 500; }
+        .badge-presenti-count { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: bold; white-space: nowrap; }
+        .btn-home { background: #0f766e; color: white; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; }
+        .btn-home:hover { background: #115e59; }
 
         /* GRIGLIA CARD */
-        .grid-cards-ospiti {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-            gap: 20px;
-        }
+        .grid-cards-ospiti { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; align-items: start; }
 
-        /* CARD OSPITE */
+        /* CARD OSPITE E STATI */
         .ospite-card {
             background: #ffffff;
             border-radius: 10px;
@@ -111,126 +60,139 @@
             flex-direction: column;
             gap: 12px;
             transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
         }
-        .ospite-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 14px rgba(0,0,0,0.08);
-        }
+        .ospite-card:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
         .ospite-card.femmina { border-left: 6px solid #db2777; }
         .ospite-card.maschio { border-left: 6px solid #0284c7; }
+        
+        /* CARD RIDIMENSIONATE PER DIMESSI/DECEDUTI */
+        .ospite-card.dimesso { 
+            border-left: 6px solid #94a3b8; 
+            background: #f8fafc; 
+            opacity: 0.9; 
+            transform: scale(0.92); 
+            transform-origin: top center;
+        }
+        .ospite-card.dimesso:hover { transform: scale(0.94); }
+        
+        .ospite-card.deceduto { 
+            border-left: 6px solid #1e293b; 
+            background: #f1f5f9; 
+            opacity: 0.85; 
+            transform: scale(0.92); 
+            transform-origin: top center;
+        }
+        .ospite-card.deceduto:hover { transform: scale(0.94); }
 
         /* HEADER CARD */
-        .card-header-info {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .card-avatar {
-            width: 58px;
-            height: 58px;
-            border-radius: 8px;
-            object-fit: cover;
-            border: 1px solid #cbd5e1;
-            background: #f8fafc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 26px;
-            color: #94a3b8;
-            flex-shrink: 0;
-        }
-        .card-title-meta {
-            flex: 1;
-        }
-        .card-nome {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 700;
-            color: #0f172a;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-        .badge-eta {
-            background: #f8fafc;
-            border: 1px solid #cbd5e1;
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 11.5px;
-            font-weight: 600;
-            color: #475569;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .card-cf {
-            margin: 3px 0 0 0;
-            font-size: 12px;
-            color: #64748b;
-        }
+        .card-header-info { display: flex; align-items: center; gap: 14px; }
+        .card-avatar { width: 58px; height: 58px; border-radius: 8px; object-fit: cover; border: 1px solid #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #94a3b8; flex-shrink: 0; }
+        .card-title-meta { flex: 1; }
+        .card-nome { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .badge-eta { background: #f8fafc; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 20px; font-size: 11.5px; font-weight: 600; color: #475569; display: inline-flex; align-items: center; gap: 4px; }
+        .badge-dimesso { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        .badge-deceduto { background: #1e293b; color: #f8fafc; border: 1px solid #0f172a; }
+        .card-cf { margin: 3px 0 0 0; font-size: 12px; color: #64748b; }
 
         /* DETTAGLI ANAGRAFICI */
-        .dettagli-anagrafici {
-            font-size: 12.5px;
-            line-height: 1.5;
-            color: #334155;
-        }
+        .dettagli-anagrafici { font-size: 12.5px; line-height: 1.5; color: #334155; }
 
-        /* BOX REFERENTI (DATI REALI) */
-        .box-referenti {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 10px 12px;
-            font-size: 12.5px;
-            line-height: 1.5;
-        }
-        .box-referenti a {
-            color: #0284c7;
-            text-decoration: underline;
-        }
-        .no-referenti {
-            color: #64748b;
-            font-style: italic;
-        }
+        /* BOX REFERENTI */
+        .box-referenti { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; }
+        .box-referenti a { color: #0284c7; text-decoration: underline; }
+        .no-referenti { color: #64748b; font-style: italic; }
 
         /* PULSANTI CARD */
-        .card-action-buttons {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-top: auto;
-            padding-top: 6px;
-        }
-        .btn-card {
-            border: none;
-            border-radius: 5px;
-            padding: 8px 10px;
-            font-size: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            transition: 0.2s;
-            color: white;
-            flex: 1;
-        }
+        .card-action-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+        .btn-card { border: none; border-radius: 5px; padding: 8px 10px; font-size: 12px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px; transition: 0.2s; color: white; flex: 1; text-align: center; }
         .btn-reparto { background: #0f766e; }
         .btn-reparto:hover { background: #115e59; }
         .btn-fascicolo { background: #1e3a5f; }
         .btn-fascicolo:hover { background: #0f2440; }
         .btn-anagrafica { background: #334155; }
         .btn-anagrafica:hover { background: #1e293b; }
+        .btn-lettera { background: #0284c7; flex: 100%; margin-top: 4px; }
+        .btn-lettera:hover { background: #0369a1; }
+        .btn-dimetti { background: #ef4444; flex: 100%; margin-top: 4px; }
+        .btn-dimetti:hover { background: #dc2626; }
+        .btn-riammetti { background: #16a34a; flex: 100%; margin-top: 4px; }
+        .btn-riammetti:hover { background: #15803d; }
+        .btn-decesso { background: #1e293b; flex: 100%; margin-top: 4px; }
+        .btn-decesso:hover { background: #0f172a; }
+
+        /* MODALI */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 92%; max-width: 450px; border-top: 6px solid #ef4444; }
+        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .form-group label { font-size: 13px; font-weight: bold; color: #334155; margin-bottom: 5px; }
+        .form-group input, .form-group select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-family: inherit; }
+
+        /* STAMPA ATTESTAZIONE DECESSO */
+        #stampa-overlay { display: none; }
+        @media print {
+            .no-print, .search-toolbar, .topbar, .grid-cards-ospiti { display: none !important; }
+            body, html, .main-container { height: auto !important; overflow: visible !important; background-color: white !important; }
+            body.stampa-pdf-attiva #stampa-overlay { display: block !important; position: static !important; padding: 10mm; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="main-container">
+    <!-- OVERLAY PER LA STAMPA -->
+    <div id="stampa-overlay"></div>
 
+    <!-- TOPBAR INFORMATIVA SULL'ACCOUNT (PER RBAC) -->
+    <div class="topbar no-print">
+        <div class="topbar-user">
+            <span>👤 Utente: <strong id="topbar-operatore-nome">Non identificato</strong></span>
+            <span class="badge-ruolo" id="topbar-operatore-ruolo">Ruolo: -</span>
+        </div>
+        <div>
+            <span style="font-size: 12px; color: #64748b; font-weight: bold;">Controllo Accessi Attivo</span>
+        </div>
+    </div>
+
+    <!-- MODALE DIMISSIONI/DECESSO GENERICA -->
+    <div id="modal-dimissioni" class="modal-overlay no-print">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:#ef4444;">🚪 Dimissione / Archiviazione Fascicolo</h3>
+            <p style="font-size:13px; color:#64748b; margin-bottom:20px;">L'ospite <strong id="dim-nome-ospite"></strong> verrà archiviato nello storico.</p>
+            <input type="hidden" id="dim-id-ospite">
+            <div class="form-group"><label>Data di Uscita/Decesso *</label><input type="date" id="dim-data"></div>
+            <div class="form-group">
+                <label>Motivo *</label>
+                <select id="dim-motivo">
+                    <option value="Rientro a Domicilio">Rientro a Domicilio</option>
+                    <option value="Trasferimento in Ospedale">Trasferimento in Ospedale</option>
+                    <option value="Trasferimento altra RSA/RP">Trasferimento in altra RSA/RP</option>
+                    <option value="Decesso">Decesso</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-card btn-anagrafica" onclick="chiudiModalDimissioni()" style="padding:12px;">Annulla</button>
+                <button class="btn-card btn-dimetti" onclick="confermaDimissione()" style="padding:12px; margin-top:0;">✅ Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE ATTESTAZIONE DECESSO -->
+    <div id="modal-attestazione-decesso" class="modal-overlay no-print">
+        <div class="modal-content" style="border-top-color:#1e293b;">
+            <h3 style="margin-top:0; color:#1e293b;">🖤 Attestazione di Decesso</h3>
+            <p style="font-size:13px; color:#64748b; margin-bottom:20px;">Compila i dati finali per stampare l'attestazione ufficiale di decesso per <strong id="dec-nome-ospite"></strong>.</p>
+            <input type="hidden" id="dec-id-ospite">
+            <div class="form-group"><label>Data del Decesso *</label><input type="date" id="dec-data" readonly style="background:#f1f5f9;"></div>
+            <div class="form-group"><label>Ora del Decesso *</label><input type="time" id="dec-ora"></div>
+            <div class="form-group"><label>Luogo Esatto del Decesso *</label><input type="text" id="dec-luogo" placeholder="Es. In Struttura, Ospedale Santa Maria Terni..."></div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-card btn-anagrafica" onclick="chiudiModalDecesso()" style="padding:12px;">Annulla</button>
+                <button class="btn-card btn-decesso" onclick="stampaAttestazioneDecesso()" style="padding:12px; margin-top:0;">🖨️ Genera Attestazione</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container no-print">
         <!-- BARRA DI RICERCA E CONTEGGIO -->
         <div class="search-toolbar">
             <div class="search-input-box">
@@ -238,7 +200,7 @@
                 <input type="text" id="filtro_testo" placeholder="Cerca per Cognome, Nome, Età, CF o MMG..." oninput="applicaFiltri()">
             </div>
             <select class="select-filtro" id="filtro_stato" onchange="applicaFiltri()">
-                <option value="PRESENTI">Solo Ospiti Presenti</option>
+                <option value="PRESENTI">Solo Ospiti Presenti (Attivi)</option>
                 <option value="TUTTI">Tutti (Inclusi dimessi/archivio)</option>
             </select>
             <div class="badge-presenti-count" id="contatore_presenti">Presenti: 0</div>
@@ -251,7 +213,6 @@
                 Caricamento elenco ospiti in corso...
             </div>
         </div>
-
     </div>
 
     <script>
@@ -264,10 +225,19 @@
             messagingSenderId: "646708586773",
             appId: "1:646708586773:web:a9d1956abdf72ace4ba11c"
         };
+        // Data odierna nel fuso del browser: toISOString() usa UTC e, vicino a mezzanotte, restituisce il giorno sbagliato
+        function oggiLocale(d = new Date()) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
         firebase.initializeApp(firebaseConfig);
         const fbDb = firebase.database();
 
         let dbOspiti = [];
+        let operatoreCorrente = null;
+
+        // VARIABILI PER IL CONTROLLO ACCESSI (RBAC)
+        let isAdminOrMed = false;
+        let isInfermiere = false;
 
         function forceArray(data) {
             if (!data) return [];
@@ -294,9 +264,33 @@
             return eta > 0 ? eta : null;
         }
 
-        firebase.auth().signInAnonymously().catch(e => console.error("Auth err:", e));
+        /* --- VERIFICA SESSIONE TRAMITE LOCALSTORAGE --- */
+        function verificaSessione() {
+            try {
+                const salvato = localStorage.getItem('ponte_doro_logged_op') || sessionStorage.getItem('ponte_doro_desktop_op');
+                if (salvato) {
+                    operatoreCorrente = JSON.parse(salvato);
+                    document.getElementById('topbar-operatore-nome').innerText = `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}`;
+                    document.getElementById('topbar-operatore-ruolo').innerText = `Ruolo: ${operatoreCorrente.incarico}`;
+                    
+                    const r = (operatoreCorrente.incarico || "").toLowerCase();
+                    isAdminOrMed = r.includes("amministrazione") || r.includes("direzione") || r.includes("titolare") || r.includes("medico") || r.includes("coordinatore");
+                    isInfermiere = r.includes("infermiere");
+                } else {
+                    document.getElementById('topbar-operatore-nome').innerText = "Accesso Anonimo";
+                    document.getElementById('topbar-operatore-ruolo').innerText = "Ruolo: Ospite non loggato";
+                    isAdminOrMed = false;
+                    isInfermiere = false;
+                }
+            } catch(e) {}
+        }
+
+        /* --- AUTENTICAZIONE E CARICAMENTO --- */
+        // Accesso riservato al personale: senza il login della struttura si torna a index.html
+        firebase.auth().onAuthStateChanged(u => { if (!u || u.isAnonymous) window.location.replace('index.html'); });
         firebase.auth().onAuthStateChanged(user => {
-            if(user) {
+            if(user && !user.isAnonymous) {
+                verificaSessione();
                 fbDb.ref('gestionale_db/ospiti').on('value', snap => {
                     dbOspiti = forceArray(snap.val());
                     applicaFiltri();
@@ -337,11 +331,7 @@
             container.innerHTML = '';
 
             if(lista.length === 0) {
-                container.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: white; border-radius: 8px; border: 1px dashed #cbd5e1; color:#64748b;">
-                        Nessun ospite trovato per i criteri di ricerca selezionati.
-                    </div>
-                `;
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; background: white; border-radius: 8px; border: 1px dashed #cbd5e1; color:#64748b;">Nessun ospite trovato per i criteri di ricerca selezionati.</div>`;
                 return;
             }
 
@@ -349,22 +339,32 @@
                 const sessoVal = String(o.sesso || '1');
                 const isFemmina = sessoVal === '2' || sessoVal.toUpperCase() === 'F';
                 const sessoIcon = isFemmina ? '<span style="color:#db2777; font-size:17px;">♀</span>' : '<span style="color:#0284c7; font-size:17px;">♂</span>';
-                const classeGenere = isFemmina ? 'femmina' : 'maschio';
+                
+                let classeGenere = isFemmina ? 'femmina' : 'maschio';
+                let isDecesso = false;
+
+                if (o.fine_servizio) {
+                    isDecesso = o.motivo_dimissione?.toLowerCase().includes('decesso');
+                    classeGenere = isDecesso ? 'deceduto' : 'dimesso';
+                }
 
                 const eta = calcolaEta(o.dob);
-                const badgeEta = eta ? `<span class="badge-eta">🎂 ${eta} anni</span>` : '';
+                let badgeEta = eta ? `<span class="badge-eta">🎂 ${eta} anni</span>` : '';
+                
+                if(o.fine_servizio) {
+                    const txtDim = isDecesso ? 'DECEDUTO' : 'DIMESSO';
+                    const badgeClass = isDecesso ? 'badge-deceduto' : 'badge-dimesso';
+                    badgeEta = `<span class="badge-eta ${badgeClass}">${txtDim}</span>`;
+                }
 
-                // Foto o icona neutra
                 const avatarHtml = o.foto?.dati 
                     ? `<img src="${o.foto.dati}" class="card-avatar" alt="${o.nome}">`
                     : `<div class="card-avatar">👤</div>`;
 
-                // Nascita e Ingresso
                 const luogoNas = o.luogo_nascita?.comune ? ` a ${o.luogo_nascita.comune}` : '';
                 const natoTesto = o.dob ? `Nato il: <strong>${formattaData(o.dob)}</strong>${eta ? ` (${eta} anni)` : ''}${luogoNas}` : 'Nato il: -';
                 const ingressoTesto = `Ingresso in struttura: <strong>${formattaData(o.ingresso)}</strong>`;
 
-                // Box Contatti / Referenti reali
                 let contattiHtml = '';
                 const haFamiglia = o.familiare && o.familiare.nome;
                 const haMmg = o.mmg && o.mmg.nome;
@@ -389,47 +389,219 @@
                     contattiHtml = righeContatti.join('<br>');
                 }
 
+                // COSTRUZIONE DINAMICA PULSANTI IN BASE AL RUOLO (RBAC)
+                
+                // Tutti vedono "In Reparto" (che diventa "Vedi Cartella Storica" per i dimessi)
+                const txtReparto = o.fine_servizio ? "🗂️ Vedi Cartella Storica" : "In Reparto";
+                let buttonsHtml = `<button type="button" class="btn-card btn-reparto" onclick="selezionaInReparto(${o.id})">${txtReparto}</button>`;
+                
+                // Infermieri, Medici e Admin vedono il PAI
+                if (isAdminOrMed || isInfermiere) {
+                    buttonsHtml += `<a href="fascicolo_bina_pai.html?id=${o.id}" class="btn-card btn-fascicolo" target="_blank">PAI ↗</a>`;
+                }
+
+                // Solo Medici, Coordinatori e Admin vedono le funzioni avanzate
+                if (isAdminOrMed) {
+                    buttonsHtml += `<a href="anagrafica_ospiti.html?id=${o.id}" class="btn-card btn-anagrafica" target="_blank">Anagrafica ↗</a>`;
+                    
+                    if (o.fine_servizio) {
+                        if (isDecesso) {
+                            // Lettera Decesso - Non c'è riammissione
+                            buttonsHtml += `<button type="button" class="btn-card btn-decesso" onclick="apriAttestazioneDecesso(${o.id})">🖤 Attestazione Decesso</button>`;
+                        } else {
+                            // Lettera Dimissione e Riammissione
+                            buttonsHtml += `<button type="button" class="btn-card btn-lettera" onclick="apriLettera(${o.id})">📄 Lettera Uscita</button>`;
+                            buttonsHtml += `<button type="button" class="btn-card btn-riammetti" onclick="riprendiInCarico(${o.id}, '${o.nome.replace(/'/g, "\\'")}')">🔄 Riprendi in Carico</button>`;
+                        }
+                    } else {
+                        buttonsHtml += `<button type="button" class="btn-card btn-dimetti" onclick="apriModalDimissioni(${o.id}, '${o.nome.replace(/'/g, "\\'")}')">🚪 Dimetti / Decesso</button>`;
+                    }
+                }
+
                 container.innerHTML += `
                     <div class="ospite-card ${classeGenere}">
-                        
-                        <!-- Intestazione con Foto, Nome, Sesso ed Età -->
                         <div class="card-header-info">
                             ${avatarHtml}
                             <div class="card-title-meta">
-                                <h3 class="card-nome">
-                                    ${sessoIcon}
-                                    <span>${o.nome}</span>
-                                    ${badgeEta}
-                                </h3>
+                                <h3 class="card-nome">${sessoIcon} <span>${o.nome}</span> ${badgeEta}</h3>
                                 <p class="card-cf">CF: ${o.cf || '-'}</p>
                             </div>
                         </div>
-
-                        <!-- Date Anagrafiche -->
-                        <div class="dettagli-anagrafici">
-                            ${natoTesto}<br>
-                            ${ingressoTesto}
-                        </div>
-
-                        <!-- Box Referenti Reali -->
-                        <div class="box-referenti">
-                            ${contattiHtml}
-                        </div>
-
-                        <!-- Pulsanti d'azione reali collegati al gestionale -->
-                        <div class="card-action-buttons">
-                            <button type="button" class="btn-card btn-reparto" onclick="selezionaInReparto(${o.id})">Seleziona in Reparto</button>
-                            <a href="fascicolo_bina_pai.html?id=${o.id}" class="btn-card btn-fascicolo">Fascicolo PAI ↗</a>
-                            <a href="anagrafica_ospiti.html?id=${o.id}" class="btn-card btn-anagrafica">Anagrafica ↗</a>
-                        </div>
-
+                        <div class="dettagli-anagrafici">${natoTesto}<br>${ingressoTesto}</div>
+                        <div class="box-referenti">${contattiHtml}</div>
+                        <div class="card-action-buttons">${buttonsHtml}</div>
                     </div>
                 `;
             });
         }
 
-        function selezionaInReparto(id) {
-            window.location.href = `index.html?sel_ospite=${id}`;
+        function selezionaInReparto(id) { window.location.href = `index.html?sel_ospite=${id}`; }
+        function apriLettera(id) { window.open(`lettera_dimissioni.html?id=${id}`, '_blank'); }
+
+        /* --- MODALE DIMISSIONI E SOFT DELETE --- */
+        function apriModalDimissioni(id, nome) {
+            document.getElementById('dim-id-ospite').value = id;
+            document.getElementById('dim-nome-ospite').innerText = nome;
+            document.getElementById('dim-data').value = oggiLocale();
+            document.getElementById('modal-dimissioni').style.display = 'flex';
+        }
+
+        function chiudiModalDimissioni() {
+            document.getElementById('modal-dimissioni').style.display = 'none';
+        }
+
+        function confermaDimissione() {
+            const idOspite = document.getElementById('dim-id-ospite').value;
+            const nomeOspite = document.getElementById('dim-nome-ospite').innerText;
+            const dataDim = document.getElementById('dim-data').value;
+            const motivo = document.getElementById('dim-motivo').value;
+
+            if(!dataDim) return alert("Inserisci la data.");
+
+            const dbRef = fbDb.ref(`gestionale_db/ospiti/${idOspite}`);
+            
+            dbRef.update({
+                fine_servizio: true,
+                data_dimissione: dataDim,
+                motivo_dimissione: motivo
+            }).then(() => {
+                const opName = operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome}` : "Amministrazione";
+                const logEntry = {
+                    id: Date.now(),
+                    timestamp: new Date().toISOString(),
+                    operatore_id: operatoreCorrente ? operatoreCorrente.id : "AMMINISTRAZIONE",
+                    operatore_nome: opName,
+                    ospite_id: idOspite,
+                    ospite_nome: nomeOspite,
+                    tipo_operazione: "MODIFICA",
+                    modulo: "ELENCO OSPITI / DIMISSIONI",
+                    dettaglio: `Dimissione/Archiviazione completata. Motivo: ${motivo}`
+                };
+                fbDb.ref(`gestionale_db/audit_logs/${logEntry.id}`).set(logEntry);
+
+                alert(`✅ Ospite archiviato con successo.`);
+                chiudiModalDimissioni();
+                
+            }).catch(error => alert("❌ Errore durante l'archiviazione: " + error.message));
+        }
+
+        /* --- FUNZIONE DI RIAMMISSIONE IN STRUTTURA --- */
+        function riprendiInCarico(idOspite, nomeOspite) {
+            if (!confirm(`ATTENZIONE: Stai per riammettere in struttura l'ospite ${nomeOspite}.\nL'ospite uscirà dall'archivio e riapparirà immediatamente sui tablet di reparto.\n\nVuoi procedere?`)) {
+                return;
+            }
+
+            const oggi = oggiLocale();
+            const dataIngresso = prompt("Inserisci la NUOVA DATA di ingresso in struttura (YYYY-MM-DD):", oggi);
+            if (!dataIngresso) return alert("Operazione annullata.");
+
+            const dbRef = fbDb.ref(`gestionale_db/ospiti/${idOspite}`);
+            
+            dbRef.update({
+                fine_servizio: null,
+                data_dimissione: null,
+                motivo_dimissione: null,
+                ingresso: dataIngresso
+            }).then(() => {
+                const opName = operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome}` : "Amministrazione";
+                const logEntry = {
+                    id: Date.now(),
+                    timestamp: new Date().toISOString(),
+                    operatore_id: operatoreCorrente ? operatoreCorrente.id : "AMMINISTRAZIONE",
+                    operatore_nome: opName,
+                    ospite_id: idOspite,
+                    ospite_nome: nomeOspite,
+                    tipo_operazione: "MODIFICA",
+                    modulo: "ELENCO OSPITI / RIAMMISSIONE",
+                    dettaglio: `Ripresa in carico dell'ospite in struttura dal ${dataIngresso}.`
+                };
+                fbDb.ref(`gestionale_db/audit_logs/${logEntry.id}`).set(logEntry);
+
+                alert(`✅ Riammissione completata!\n\n⚠️ ATTENZIONE: Verifica e aggiorna la prescrizione della terapia farmacologica dell'ospite.`);
+                
+            }).catch(error => alert("❌ Errore durante la riammissione: " + error.message));
+        }
+
+        /* --- LOGICA ATTESTAZIONE DECESSO --- */
+        function apriAttestazioneDecesso(id) {
+            const osp = dbOspiti.find(o => String(o.id) === String(id));
+            if(!osp) return;
+            document.getElementById('dec-id-ospite').value = id;
+            document.getElementById('dec-nome-ospite').innerText = osp.nome;
+            document.getElementById('dec-data').value = osp.data_dimissione || oggiLocale();
+            
+            // Popola ora se avevamo già l'orario (nel caso potessimo aggiungerlo, default vuoto)
+            document.getElementById('dec-ora').value = "";
+            document.getElementById('dec-luogo').value = "";
+
+            document.getElementById('modal-attestazione-decesso').style.display = 'flex';
+        }
+
+        function chiudiModalDecesso() {
+            document.getElementById('modal-attestazione-decesso').style.display = 'none';
+        }
+
+        function stampaAttestazioneDecesso() {
+            const id = document.getElementById('dec-id-ospite').value;
+            const osp = dbOspiti.find(o => String(o.id) === String(id));
+            const dataDecesso = document.getElementById('dec-data').value;
+            const oraDecesso = document.getElementById('dec-ora').value;
+            const luogoDecesso = document.getElementById('dec-luogo').value.trim();
+
+            if(!oraDecesso || !luogoDecesso) return alert("Compila l'ora e il luogo esatto del decesso per procedere alla stampa.");
+
+            const dataNascita = osp.dob ? formattaData(osp.dob) : '-';
+            const comuneNascita = osp.luogo_nascita?.comune || '-';
+            const provNascita = osp.luogo_nascita?.prov || '-';
+            const indirizzoRes = osp.residenza?.indirizzo || '-';
+            const comuneRes = osp.residenza?.comune || '-';
+
+            const overlay = document.getElementById('stampa-overlay');
+            overlay.innerHTML = `
+                <div style="font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000;">
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 35px;">
+                        <h1 style="margin: 0; font-size: 22pt; text-transform: uppercase;">Residenza Servita per Anziani "Ponte D'Oro"</h1>
+                        <p style="margin: 5px 0 0 0; font-size: 11pt;">Via Sardegna 10, 05100 Terni (TR) • USL Umbria 2</p>
+                    </div>
+                    
+                    <h2 style="text-align: center; text-decoration: underline; margin-bottom: 40px; font-size: 16pt;">ATTESTAZIONE DI DECESSO</h2>
+                    
+                    <p style="font-size: 12pt;">La Direzione della Residenza Servita "Ponte D'Oro" attesta ufficialmente che l'ospite:</p>
+                    
+                    <div style="background: #f8fafc; padding: 20px; border: 1px solid #000; margin-bottom: 25px; font-size: 12pt;">
+                        <p style="margin: 5px 0;"><strong>Nome e Cognome:</strong> ${osp.nome}</p>
+                        <p style="margin: 5px 0;"><strong>Codice Fiscale:</strong> ${osp.cf || '-'}</p>
+                        <p style="margin: 5px 0;"><strong>Data di Nascita:</strong> ${dataNascita} a ${comuneNascita} (${provNascita})</p>
+                        <p style="margin: 5px 0;"><strong>Residenza Fiscale:</strong> ${indirizzoRes}, ${comuneRes}</p>
+                    </div>
+
+                    <p style="font-size: 12pt;">È deceduto/a in data <strong>${formattaData(dataDecesso)}</strong> alle ore <strong>${oraDecesso}</strong>.</p>
+                    <p style="font-size: 12pt;"><strong>Luogo del decesso:</strong> ${luogoDecesso}</p>
+                    <p style="font-size: 12pt;"><strong>Data ingresso in struttura:</strong> ${formattaData(osp.ingresso)}</p>
+
+                    <p style="margin-top: 40px; font-size: 11pt; text-align: justify;">
+                        Il presente documento viene rilasciato ai fini di legge per gli usi consentiti ed è generato dal registro digitale ufficiale della struttura ai sensi del Regolamento UE 2016/679 (GDPR) e della normativa socio-assistenziale regionale vigente. L'intera cartella clinica viene conseguentemente congelata e archiviata nello Storico della struttura.
+                    </p>
+
+                    <div style="display: flex; justify-content: space-between; margin-top: 80px; text-align: center; font-size: 12pt;">
+                        <div style="width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                            Luogo e Data Emissione<br>
+                            <strong>Terni, ${new Date().toLocaleDateString('it-IT')}</strong>
+                        </div>
+                        <div style="width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                            La Direzione / Titolare<br>
+                            <small>(Timbro e Firma)</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.classList.add('stampa-pdf-attiva');
+            setTimeout(() => {
+                window.print();
+                document.body.classList.remove('stampa-pdf-attiva');
+                chiudiModalDecesso();
+            }, 300);
         }
     </script>
 </body>

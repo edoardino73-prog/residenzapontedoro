@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro Privacy, Audit Forense & Atti di Nomina GDPR - Residenza Ponte D'Oro</title>
+    
+    <!-- Firebase v8 SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            background-color: #f1f5f9; 
+            color: #1e293b; 
+        }
+
+        /* TOPBAR */
+        .topbar {
+            background: #0f172a;
+            color: white;
+            padding: 14px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            border-bottom: 3px solid #0284c7;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .topbar h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 10px; color: #38bdf8; }
+        .badge-ruolo { background: #0f766e; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+
+        .container { max-width: 1380px; margin: 25px auto; padding: 0 20px 50px 20px; }
+
+        /* TABS NAVIGAZIONE INTERNA */
+        .tabs-bar { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+        .tab-btn {
+            flex: 1;
+            min-width: 240px;
+            padding: 14px 18px;
+            font-size: 14.5px;
+            font-weight: 700;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #475569;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .tab-btn.active {
+            background: #0f766e;
+            color: white;
+            border-color: #0f766e;
+            box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2);
+        }
+
+        .panel-section { display: none; }
+        .panel-section.active { display: block; }
+
+        /* KPI CARDS */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 22px; }
+        .kpi-card { background: white; padding: 15px 18px; border-radius: 8px; border-left: 5px solid #0284c7; box-shadow: 0 2px 5px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; border-left-width: 5px; }
+        .kpi-card h4 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; }
+        .kpi-card .val { margin: 0; font-size: 24px; font-weight: 800; color: #0f172a; }
+
+        /* BOX E TABELLE */
+        .card-box {
+            background: #ffffff;
+            padding: 22px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 25px;
+        }
+        .card-box h3 {
+            margin-top: 0;
+            color: #0f172a;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .filter-box {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #0284c7;
+            border: 1px solid #cbd5e1;
+            margin-bottom: 18px;
+        }
+        .form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+        .form-group { flex: 1; display: flex; flex-direction: column; min-width: 175px; }
+        label { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px; }
+        input, select { padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13.5px; font-family: inherit; background: white; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; vertical-align: middle; }
+        th { background-color: #f8fafc; color: #334155; font-weight: 700; }
+
+        /* BADGE OPERAZIONI */
+        .badge-audit { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
+        .badge-audit-crea { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-audit-mod { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .badge-audit-canc { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        .badge-audit-acc { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+
+        /* PULSANTI */
+        .btn { padding: 9px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none; transition: 0.2s; }
+        .btn-sm { padding: 5px 10px; font-size: 11.5px; }
+        .btn-primary { background: #0284c7; }
+        .btn-success { background: #16a34a; }
+        .btn-warning { background: #f59e0b; }
+        .btn-danger { background: #dc2626; }
+        .btn-dark { background: #334155; }
+        .btn-teal { background: #0f766e; }
+
+        .img-thumbnail { width: 90px; height: 42px; object-fit: contain; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; padding: 2px; }
+
+        /* CANVAS FIRMA GRAFOMETRICA */
+        .signature-pad-wrapper {
+            border: 2px dashed #0f766e;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        canvas#firma-canvas {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            border-radius: 4px;
+            cursor: crosshair;
+            touch-action: none;
+            width: 100%;
+            max-width: 460px;
+            height: 150px;
+        }
+
+        /* MODALE AUTENTICAZIONE */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.75); z-index: 9999; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 92%; max-width: 460px; border-top: 6px solid #0284c7; }
+
+        /* INTESTAZIONE DI STAMPA UFFICIALE */
+        .print-header-ufficiale {
+            display: none;
+            text-align: center;
+            border-bottom: 2px solid #0f766e;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            font-family: 'Times New Roman', Times, serif;
+        }
+        .print-header-ufficiale h1 { margin: 0; font-size: 20pt; color: #0f766e; text-transform: uppercase; }
+        .print-header-ufficiale p { margin: 4px 0 0 0; font-size: 10.5pt; color: #334155; }
+        .print-meta-bar { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; font-size: 10.5pt; font-weight: bold; color: #000; }
+        .print-footer-firme { display: none; margin-top: 40px; justify-content: space-between; font-family: 'Times New Roman', Times, serif; font-size: 11pt; page-break-inside: avoid; }
+        .print-footer-firme div { width: 42%; border-top: 1px solid #000; padding-top: 6px; text-align: center; }
+
+        #stampa-atto-overlay { display: none; }
+
+        @media print {
+            @page { margin: 12mm; size: A4 portrait; }
+            .no-print, .topbar, .tabs-bar, .filter-box, .btn, .kpi-grid { display: none !important; }
+            body, .container, .card-box { background: white !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border: none !important; width: 100% !important; color: #000 !important; }
+            .print-header-ufficiale { display: block !important; }
+            .print-footer-firme { display: flex !important; }
+            table { width: 100% !important; border-collapse: collapse !important; font-size: 9.5pt !important; }
+            tr { page-break-inside: avoid; }
+            thead { display: table-header-group; }
+            th, td { border: 1px solid #000 !important; padding: 6px !important; color: #000 !important; }
+            th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            
+            body.stampa-atto-mode .container { display: none !important; }
+            body.stampa-atto-mode #stampa-atto-overlay { display: block !important; position: static !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- OVERLAY PER STAMPA SINGOLO ATTO DI NOMINA GDPR -->
+    <div id="stampa-atto-overlay"></div>
+
+    <!-- MODALE AUTENTICAZIONE DIREZIONE -->
+    <div id="modal-auth-audit" class="modal-overlay no-print">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:#0284c7;">🛡️ Autenticazione Vigilanza GDPR</h3>
+            <p style="font-size:13px; color:#64748b;">L'accesso al Registro Forense degli Accessi è riservato al Titolare, alla Direzione Sanitaria e al Coordinamento.</p>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Seleziona Profilo Autorizzato *</label>
+                <select id="auth_op_select"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:18px;">
+                <label>PIN Personale *</label>
+                <input type="password" id="auth_op_pin" placeholder="••••" style="text-align:center; font-size:18px; letter-spacing:4px;" onkeypress="if(event.key==='Enter') confermaAuthAudit()">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <a href="index.html" class="btn btn-dark" style="flex:1; justify-content:center;">Torna a Reparto</a>
+                <button class="btn btn-primary" style="flex:1; justify-content:center;" onclick="confermaAuthAudit()">🔓 Sblocca Registro</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOPBAR -->
+    <div class="topbar no-print">
+        <h2>🛡️ Registro Privacy, Audit Forense & Atti di Nomina (GDPR UE 2016/679)</h2>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span>👤 Revisore: <strong id="top-op-nome">Verifica...</strong></span>
+            <span class="badge-ruolo" id="top-op-ruolo">-</span>
+            <button class="btn btn-primary btn-sm" onclick="apriModalAuth()">🔄 Cambia Profilo</button>
+            <a href="index.html" class="btn btn-dark btn-sm">🏛️ Torna al Gestionale</a>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <!-- INTESTAZIONE UFFICIALE PER STAMPA REGISTRI -->
+        <div class="print-header-ufficiale">
+            <h1>Residenza Servita per Anziani "Ponte D'Oro"</h1>
+            <p>Via Sardegna 10, 05100 Terni (TR) • Conformità Regolamento UE 2016/679 (GDPR Artt. 28, 29, 30 e 32)</p>
+            <div class="print-meta-bar">
+                <span id="print-doc-titolo">DOCUMENTO: Registro Ufficiale delle Operazioni e degli Accessi (Audit Trail)</span>
+                <span id="print-doc-data"></span>
+            </div>
+        </div>
+
+        <!-- BARRA TABS -->
+        <div class="tabs-bar no-print">
+            <button class="tab-btn active" onclick="cambiaTab('panel-audit', this)">🔍 1. Registro Audit Log & Tracciamento Operazioni (Art. 30/32)</button>
+            <button class="tab-btn" onclick="cambiaTab('panel-nomine', this)">📝 2. Archivio & Sottoscrizione Atti di Nomina Incaricati (Art. 28/29)</button>
+        </div>
+
+        <!-- ==================== PANNELLO 1: AUDIT LOG FORENSE ==================== -->
+        <div id="panel-audit" class="panel-section active">
+
+            <div class="kpi-grid no-print">
+                <div class="kpi-card">
+                    <h4>Totale Eventi Tracciati</h4>
+                    <p class="val" id="kpi-totale">0</p>
+                </div>
+                <div class="kpi-card" style="border-left-color:#16a34a;">
+                    <h4>Inserimenti Dati</h4>
+                    <p class="val" id="kpi-ins" style="color:#16a34a;">0</p>
+                </div>
+                <div class="kpi-card" style="border-left-color:#f59e0b;">
+                    <h4>Modifiche / Variazioni</h4>
+                    <p class="val" id="kpi-mod" style="color:#d97706;">0</p>
+                </div>
+                <div class="kpi-card" style="border-left-color:#dc2626;">
+                    <h4>Cancellazioni / Revoche</h4>
+                    <p class="val" id="kpi-canc" style="color:#dc2626;">0</p>
+                </div>
+                <div class="kpi-card" style="border-left-color:#0f766e;">
+                    <h4>Stato Integrità Log</h4>
+                    <p class="val" style="font-size:15px; color:#0f766e; margin-top:6px;">🔒 IMMUTABILE ATTIVO</p>
+                </div>
+            </div>
+
+            <div class="card-box">
+                <h3>
+                    <span>📋 Registro Cronologico Immutabile delle Operazioni (Audit Trail)</span>
+                    <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="btn btn-teal btn-sm" onclick="registraIspezioneFormale()">✅ Registra Visto Ispezione Periodica</button>
+                        <button class="btn btn-warning btn-sm" onclick="stampaRegistroAudit()">🖨️ Stampa Registro Ufficiale</button>
+                        <button class="btn btn-dark btn-sm" onclick="esportaAuditCSV()">📥 Esporta CSV per Ispezione</button>
+                    </div>
+                </h3>
+
+                <!-- FILTRI MULTIPLI -->
+                <div class="filter-box no-print">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>📅 Data Da:</label>
+                            <input type="date" id="filtro_data_da" onchange="renderTabellaAudit()">
+                        </div>
+                        <div class="form-group">
+                            <label>📅 Data A:</label>
+                            <input type="date" id="filtro_data_a" onchange="renderTabellaAudit()">
+                        </div>
+                        <div class="form-group">
+                            <label>👤 Filtra per Ospite:</label>
+                            <select id="filtro_audit_ospite" onchange="renderTabellaAudit()"><option value="">-- Tutti gli Ospiti --</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>👨‍⚕️ Filtra per Operatore:</label>
+                            <select id="filtro_audit_operatore" onchange="renderTabellaAudit()"><option value="">-- Tutti gli Operatori --</option></select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:0;">
+                        <div class="form-group">
+                            <label>🗂️ Filtra per Modulo:</label>
+                            <select id="filtro_audit_modulo" onchange="renderTabellaAudit()"><option value="">-- Tutti i Moduli --</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>⚡ Tipo Operazione:</label>
+                            <select id="filtro_audit_tipo" onchange="renderTabellaAudit()">
+                                <option value="">-- Tutte le Operazioni --</option>
+                                <option value="ACCESSO">ACCESSO / AUTENTICAZIONE</option>
+                                <option value="INSERIMENTO">INSERIMENTO</option>
+                                <option value="MODIFICA">MODIFICA</option>
+                                <option value="CANCELLAZIONE">CANCELLAZIONE</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:2;">
+                            <label>🔎 Ricerca Libera nel Dettaglio:</label>
+                            <input type="text" id="filtro_audit_testo" placeholder="Cerca parola chiave..." oninput="renderTabellaAudit()">
+                        </div>
+                        <div class="form-group" style="flex:0; min-width:auto; justify-content:flex-end;">
+                            <button class="btn btn-dark" onclick="resetFiltriAudit()">🔄 Reset Filtri</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:115px;">ID Marca Temp.</th>
+                                <th style="width:140px;">Data e Ora Esatta</th>
+                                <th style="width:220px;">Operatore & Inquadramento</th>
+                                <th style="width:165px;">Ospite Riferimento</th>
+                                <th style="width:115px;">Operazione</th>
+                                <th style="width:130px;">Modulo</th>
+                                <th>Dettaglio Analitico Evento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabella-audit"></tbody>
+                    </table>
+                </div>
+
+                <div class="print-footer-firme">
+                    <div>Il Titolare del Trattamento<br><small>(Residenza Servita Ponte D'Oro)</small></div>
+                    <div>La Direzione Sanitaria / Responsabile Audit<br><small id="print-revisore-firma"></small></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== PANNELLO 2: ARCHIVIO E SOTTOSCRIZIONE NOMINE GDPR ==================== -->
+        <div id="panel-nomine" class="panel-section">
+
+            <div class="card-box no-print" style="border-top: 4px solid #0f766e;">
+                <h3>✍️ Sottoscrizione Digitale Nuovo Atto di Nomina Incaricato / Responsabile Esterno (Art. 28 e 29 GDPR)</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Seleziona Operatore dal Team (oppure compila a mano) *</label>
+                        <select id="nom_seleziona_op" onchange="precompilaDaOperatore()">
+                            <option value="">-- Seleziona dall'elenco personale o compila sotto --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nominativo Completo (Nome e Cognome) *</label>
+                        <input type="text" id="nom_nominativo" placeholder="Es. Dott. Mario Rossi">
+                    </div>
+                    <div class="form-group">
+                        <label>Qualifica / Mansione (RBAC) *</label>
+                        <select id="nom_incarico">
+                            <option value="Direzione Sanitaria">Direzione Sanitaria</option>
+                            <option value="Coordinatore Sanitario / Medico">Coordinatore Sanitario / Medico</option>
+                            <option value="Infermiere Professionale">Infermiere Professionale</option>
+                            <option value="Operatore OSS">Operatore OSS</option>
+                            <option value="Animatore / Educatore">Animatore / Educatore</option>
+                            <option value="Addetto Cucina">Addetto Cucina (HACCP/Diete)</option>
+                            <option value="Amministrazione / Proprietà">Amministrazione / Proprietà</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Inquadramento Giuridico Contrattuale *</label>
+                        <select id="nom_inquadramento">
+                            <option value="INTERNO_PROPRIETA">Dipendente Interno Struttura (Art. 29 GDPR)</option>
+                            <option value="RELOAD_SPA">Personale in Appalto Esterno - Reload S.p.A. (Art. 28/29 GDPR)</option>
+                            <option value="PARTITA_IVA">Libero Professionista a Partita IVA (Art. 28/29 GDPR)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Partita IVA / Estremi Cooperativa (se esterno)</label>
+                        <input type="text" id="nom_piva" placeholder="Es. IT01234567890">
+                    </div>
+                    <div class="form-group">
+                        <label>Postazione / Dispositivo di Sottoscrizione</label>
+                        <input type="text" id="nom_dispositivo" value="Postazione Direzionale Ponte D'Oro (Terni)">
+                    </div>
+                </div>
+
+                <div class="signature-pad-wrapper" style="margin-top:10px;">
+                    <label style="display:block; margin-bottom:8px; color:#0f766e;">🖋️ Apponi Firma Autografa sul Riquadro (Mouse o Touch) per Accettazione Integrale dell'Atto di Nomina *</label>
+                    <canvas id="firma-canvas" width="460" height="150"></canvas>
+                    <div style="margin-top:8px; display:flex; justify-content:center; gap:10px;">
+                        <button type="button" class="btn btn-dark btn-sm" onclick="pulisciCanvasFirma()">🧹 Pulisci Firma</button>
+                        <button type="button" class="btn btn-success" onclick="salvaAttoNominaGDPR()">💾 Registra e Archivia Atto di Nomina Firmato</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-box">
+                <h3>
+                    <span>📝 Archivio Ufficiale Atti di Nomina Sottoscritti (Art. 28 e 29 GDPR)</span>
+                    <button class="btn btn-warning btn-sm no-print" onclick="stampaElencoNomine()">🖨️ Stampa Elenco Nomine</button>
+                </h3>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:145px;">Data e Ora Firma</th>
+                                <th style="width:210px;">Soggetto Designato</th>
+                                <th style="width:180px;">Mansione Autorizzata</th>
+                                <th style="width:210px;">Inquadramento & P.IVA/Ditta</th>
+                                <th style="width:130px; text-align:center;">Firma Acquisita</th>
+                                <th style="width:170px; text-align:center;" class="no-print">Azioni Documentali</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabella-nomine-privacy"></tbody>
+                    </table>
+                </div>
+
+                <div class="print-footer-firme">
+                    <div>Il Titolare del Trattamento<br><small>(Residenza Servita Ponte D'Oro)</small></div>
+                    <div>La Direzione Sanitaria<br><small>(Timbro e Firma)</small></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2a7aK5Ze4mFF7ku4eFiz4or1pImHXoiA",
+            authDomain: "residenza-ponte-d-oro.firebaseapp.com",
+            databaseURL: "https://residenza-ponte-d-oro-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "residenza-ponte-d-oro",
+            storageBucket: "residenza-ponte-d-oro.firebasestorage.app",
+            messagingSenderId: "646708586773",
+            appId: "1:646708586773:web:a9d1956abdf72ace4ba11c"
+        };
+        // Data odierna nel fuso del browser: toISOString() usa UTC e, vicino a mezzanotte, restituisce il giorno sbagliato
+        function oggiLocale(d = new Date()) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        firebase.initializeApp(firebaseConfig);
+        const fbDb = firebase.database();
+
+        let db = { ospiti: [], operatori: [], audit_logs: [], nomine_privacy: [] };
+        let operatoreCorrente = null;
+
+        function forceArray(data) {
+            if (!data) return [];
+            return (Array.isArray(data) ? data : Object.values(data).filter(item => item !== null));
+        }
+
+        function formattaData(iso) { 
+            if(!iso) return "-"; 
+            if(iso.indexOf('-') === -1) return iso;
+            const p = iso.split('-'); 
+            return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; 
+        }
+
+        function cambiaTab(idPanel, btn) {
+            document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(idPanel).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        /* --- VERIFICA SESSIONE E AUTORIZZAZIONE GDPR --- */
+        function verificaSessione() {
+            try {
+                const salvato = localStorage.getItem('ponte_doro_logged_op') || sessionStorage.getItem('ponte_doro_desktop_op');
+                if (salvato) {
+                    const op = JSON.parse(salvato);
+                    const r = (op.incarico || "").toLowerCase();
+                    const autorizzato = r.includes("amministrazione") || r.includes("proprietà") || r.includes("titolare") || r.includes("direzione") || r.includes("coordinatore") || r.includes("medico");
+                    if (autorizzato) {
+                        operatoreCorrente = op;
+                        document.getElementById('top-op-nome').innerText = `${op.nome} ${op.cognome || ''}`;
+                        document.getElementById('top-op-ruolo').innerText = op.incarico;
+                        document.getElementById('modal-auth-audit').style.display = 'none';
+                        return;
+                    }
+                }
+                apriModalAuth();
+            } catch(e) {
+                apriModalAuth();
+            }
+        }
+
+        function apriModalAuth() {
+            const sel = document.getElementById('auth_op_select');
+            sel.innerHTML = '<option value="">-- Seleziona Profilo Direzionale --</option>';
+            db.operatori.filter(op => String(op.attivo) !== "false").forEach(op => {
+                sel.options.add(new Option(`${op.nome} ${op.cognome || ''} (${op.incarico})`, op.id));
+            });
+            document.getElementById('auth_op_pin').value = '';
+            document.getElementById('modal-auth-audit').style.display = 'flex';
+        }
+
+        function confermaAuthAudit() {
+            const idOp = document.getElementById('auth_op_select').value;
+            const pin = document.getElementById('auth_op_pin').value.trim();
+            if(!idOp) return alert("Seleziona un profilo!");
+            const op = db.operatori.find(o => String(o.id) === String(idOp));
+            if(!op) return;
+
+            const r = (op.incarico || "").toLowerCase();
+            const autorizzato = r.includes("amministrazione") || r.includes("proprietà") || r.includes("titolare") || r.includes("direzione") || r.includes("coordinatore") || r.includes("medico");
+            if(!autorizzato) {
+                return alert("⛔ ACCESSO NEGATO: Il Registro Privacy e Audit Forense è riservato esclusivamente a Titolare, Direzione Sanitaria e Coordinamento.");
+            }
+
+            if(String(op.pin) !== String(pin)) {
+                document.getElementById('auth_op_pin').value = '';
+                return alert("⛔ PIN non valido!");
+            }
+
+            operatoreCorrente = op;
+            localStorage.setItem('ponte_doro_logged_op', JSON.stringify((({ pin, ...resto }) => resto)(op)));
+            sessionStorage.setItem('ponte_doro_desktop_op', JSON.stringify((({ pin, ...resto }) => resto)(op)));
+            verificaSessione();
+        }
+
+        /* --- CARICAMENTO DATI REALTIME --- */
+        // Accesso riservato al personale: senza il login della struttura si torna a index.html
+        firebase.auth().onAuthStateChanged(u => { if (!u || u.isAnonymous) window.location.replace('index.html'); });
+        firebase.auth().onAuthStateChanged(user => {
+            if(user && !user.isAnonymous) {
+                fbDb.ref('gestionale_db').on('value', snap => {
+                    const d = snap.val() || {};
+                    db.ospiti = forceArray(d.ospiti);
+                    db.operatori = forceArray(d.operatori);
+                    db.audit_logs = forceArray(d.audit_logs);
+                    db.nomine_privacy = forceArray(d.nomine_privacy);
+
+                    verificaSessione();
+                    popolaFiltri();
+                    renderTabellaAudit();
+                    renderTabellaNominePrivacy();
+                });
+            }
+        });
+
+        function popolaFiltri() {
+            const selOsp = document.getElementById('filtro_audit_ospite');
+            const precOsp = selOsp.value;
+            selOsp.innerHTML = '<option value="">-- Tutti gli Ospiti --</option>';
+            db.ospiti.forEach(o => selOsp.options.add(new Option(o.nome, o.id)));
+            if(precOsp) selOsp.value = precOsp;
+
+            const selOp = document.getElementById('filtro_audit_operatore');
+            const precOp = selOp.value;
+            selOp.innerHTML = '<option value="">-- Tutti gli Operatori --</option>';
+            db.operatori.forEach(op => selOp.options.add(new Option(`${op.nome} ${op.cognome || ''}`, op.id)));
+            if(precOp) selOp.value = precOp;
+
+            const selMod = document.getElementById('filtro_audit_modulo');
+            const precMod = selMod.value;
+            const moduliUnici = [...new Set(db.audit_logs.map(l => l.modulo).filter(Boolean))].sort();
+            selMod.innerHTML = '<option value="">-- Tutti i Moduli --</option>';
+            moduliUnici.forEach(m => selMod.options.add(new Option(m, m)));
+            if(precMod) selMod.value = precMod;
+
+            const selNomOp = document.getElementById('nom_seleziona_op');
+            const precNom = selNomOp.value;
+            selNomOp.innerHTML = '<option value="">-- Seleziona dall\'elenco personale o compila sotto --</option>';
+            db.operatori.forEach(op => selNomOp.options.add(new Option(`${op.nome} ${op.cognome || ''} (${op.incarico})`, op.id)));
+            if(precNom) selNomOp.value = precNom;
+        }
+
+        function resetFiltriAudit() {
+            ['filtro_data_da','filtro_data_a','filtro_audit_ospite','filtro_audit_operatore','filtro_audit_modulo','filtro_audit_tipo','filtro_audit_testo'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            renderTabellaAudit();
+        }
+
+        /* --- RENDERIZZAZIONE AUDIT LOG E KPI (PROTETTA CON String()) --- */
+        function renderTabellaAudit() {
+            const tbody = document.getElementById('tabella-audit');
+            if(!tbody) return;
+
+            let logs = [...(db.audit_logs || [])];
+
+            document.getElementById('kpi-totale').innerText = logs.length;
+            document.getElementById('kpi-ins').innerText = logs.filter(l => l.tipo_operazione === 'INSERIMENTO').length;
+            document.getElementById('kpi-mod').innerText = logs.filter(l => l.tipo_operazione === 'MODIFICA').length;
+            document.getElementById('kpi-canc').innerText = logs.filter(l => l.tipo_operazione === 'CANCELLAZIONE').length;
+
+            const fDa = document.getElementById('filtro_data_da').value;
+            const fA = document.getElementById('filtro_data_a').value;
+            const fOsp = document.getElementById('filtro_audit_ospite').value;
+            const fOp = document.getElementById('filtro_audit_operatore').value;
+            const fMod = document.getElementById('filtro_audit_modulo').value;
+            const fTipo = document.getElementById('filtro_audit_tipo').value;
+            const fTesto = (document.getElementById('filtro_audit_testo').value || '').trim().toLowerCase();
+
+            if(fDa) logs = logs.filter(l => String(l.timestamp || '').substring(0,10) >= fDa);
+            if(fA) logs = logs.filter(l => String(l.timestamp || '').substring(0,10) <= fA);
+            if(fOsp) logs = logs.filter(l => String(l.ospite_id) === String(fOsp));
+            if(fOp) logs = logs.filter(l => String(l.operatore_id) === String(fOp));
+            if(fMod) logs = logs.filter(l => String(l.modulo) === fMod);
+            if(fTipo) logs = logs.filter(l => String(l.tipo_operazione) === fTipo);
+            if(fTesto) {
+                logs = logs.filter(l => 
+                    String(l.dettaglio || '').toLowerCase().includes(fTesto) ||
+                    String(l.operatore_nome || '').toLowerCase().includes(fTesto) ||
+                    String(l.ospite_nome || '').toLowerCase().includes(fTesto) ||
+                    String(l.modulo || '').toLowerCase().includes(fTesto)
+                );
+            }
+
+            tbody.innerHTML = '';
+            if(logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:25px; color:#64748b;">Nessun evento di audit trovato per i filtri selezionati.</td></tr>';
+                return;
+            }
+
+            logs.sort((a, b) => {
+                const tA = String(a.timestamp || '');
+                const tB = String(b.timestamp || '');
+                return tB.localeCompare(tA);
+            }).forEach(l => {
+                const ts = String(l.timestamp || '');
+                const dateStr = ts.length >= 19 ? `${formattaData(ts.substring(0,10))} ore ${ts.substring(11,19)}` : (ts || '-');
+                let bClass = 'badge-audit-mod';
+                if(l.tipo_operazione === 'INSERIMENTO') bClass = 'badge-audit-crea';
+                if(l.tipo_operazione === 'CANCELLAZIONE') bClass = 'badge-audit-canc';
+                if(l.tipo_operazione === 'ACCESSO') bClass = 'badge-audit-acc';
+
+                tbody.innerHTML += `<tr>
+                    <td><small style="color:#64748b; font-family:monospace;">#${l.id}</small></td>
+                    <td><strong>${dateStr}</strong></td>
+                    <td><strong>${l.operatore_nome || '-'}</strong></td>
+                    <td>${l.ospite_nome || 'Generale / Struttura'}</td>
+                    <td><span class="badge-audit ${bClass}">${l.tipo_operazione || 'EVENTO'}</span></td>
+                    <td><strong>${l.modulo || '-'}</strong></td>
+                    <td>${l.dettaglio || '-'}</td>
+                </tr>`;
+            });
+        }
+
+        function registraIspezioneFormale() {
+            if(!operatoreCorrente) return apriModalAuth();
+            const nota = prompt("Inserisci eventuale nota di verifica per il verbale di controllo Audit GDPR:", "Controllo periodico di integrità e conformità regolarmente eseguito senza anomalie.");
+            if(!nota) return;
+
+            const logId = Date.now();
+            fbDb.ref(`gestionale_db/audit_logs/${logId}`).set({
+                id: logId,
+                timestamp: new Date().toISOString(),
+                operatore_id: operatoreCorrente.id,
+                operatore_nome: `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''} [${operatoreCorrente.incarico}]`,
+                ospite_id: "-",
+                ospite_nome: "Intera Struttura",
+                tipo_operazione: "ACCESSO",
+                modulo: "AUDIT GDPR",
+                dettaglio: `VISTO ISPEZIONE REVISORE: ${nota}`
+            }).then(() => alert("✅ Visto di ispezione periodica registrato nel log immutabile."));
+        }
+
+        function esportaAuditCSV() {
+            if(!db.audit_logs || db.audit_logs.length === 0) return alert("Nessun dato di audit presente.");
+            let csv = "ID_Evento;Timestamp_ISO;Operatore_Incaricato;Ospite_Riferimento;Tipo_Operazione;Modulo;Dettaglio_Analitico\r\n";
+            db.audit_logs.forEach(l => {
+                const dett = String(l.dettaglio || '').replace(/;/g, ',').replace(/"/g, '""');
+                csv += `"${l.id}";"${l.timestamp}";"${l.operatore_nome}";"${l.ospite_nome}";"${l.tipo_operazione}";"${l.modulo}";"${dett}"\r\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Registro_Audit_GDPR_Ponte_D_Oro_${oggiLocale()}.csv`;
+            link.click();
+        }
+
+        function stampaRegistroAudit() {
+            document.body.classList.remove('stampa-atto-mode');
+            document.getElementById('print-doc-titolo').innerText = "DOCUMENTO: Registro Ufficiale delle Operazioni e degli Accessi (Audit Trail Art. 30/32 GDPR)";
+            document.getElementById('print-doc-data').innerText = `Emesso il: ${new Date().toLocaleDateString('it-IT')} ore ${new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'})}`;
+            document.getElementById('print-revisore-firma').innerText = operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''} (${operatoreCorrente.incarico})` : "Direzione";
+            window.print();
+        }
+
+        function stampaElencoNomine() {
+            document.body.classList.remove('stampa-atto-mode');
+            document.getElementById('print-doc-titolo').innerText = "DOCUMENTO: Elenco Ufficiale Soggetti Designati e Atti di Nomina Sottoscritti (Art. 28/29 GDPR)";
+            document.getElementById('print-doc-data').innerText = `Emesso il: ${new Date().toLocaleDateString('it-IT')}`;
+            window.print();
+        }
+
+        /* --- GESTIONE CANVAS FIRMA E ARCHIVIO NOMINE --- */
+        const canvas = document.getElementById('firma-canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let hasSigned = false;
+
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = "round";
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        canvas.addEventListener('mousedown', e => { isDrawing = true; hasSigned = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+        canvas.addEventListener('mousemove', e => { if(!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+        window.addEventListener('mouseup', () => { isDrawing = false; });
+
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; hasSigned = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, {passive:false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }, {passive:false});
+        window.addEventListener('touchend', () => { isDrawing = false; });
+
+        function pulisciCanvasFirma() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasSigned = false;
+        }
+
+        function precompilaDaOperatore() {
+            const idOp = document.getElementById('nom_seleziona_op').value;
+            if(!idOp) return;
+            const op = db.operatori.find(o => String(o.id) === String(idOp));
+            if(!op) return;
+            document.getElementById('nom_nominativo').value = `${op.nome} ${op.cognome || ''}`.trim();
+            document.getElementById('nom_incarico').value = op.incarico || "Operatore OSS";
+            document.getElementById('nom_inquadramento').value = op.inquadramento || "INTERNO_PROPRIETA";
+            document.getElementById('nom_piva').value = op.partita_iva || "";
+        }
+
+        function salvaAttoNominaGDPR() {
+            const nominativo = document.getElementById('nom_nominativo').value.trim();
+            const incarico = document.getElementById('nom_incarico').value;
+            const inquadramento = document.getElementById('nom_inquadramento').value;
+            const piva = document.getElementById('nom_piva').value.trim();
+            const disp = document.getElementById('nom_dispositivo').value.trim();
+
+            if(!nominativo) return alert("⚠️ Inserisci il Nominativo dell'operatore da nominare!");
+            if(!hasSigned) return alert("⚠️ Apponi la firma autografa nel riquadro prima di salvare l'Atto di Nomina!");
+
+            const dataUrlFirma = canvas.toDataURL("image/png");
+            const idNomina = Date.now();
+
+            const recordNomina = {
+                id: idNomina,
+                nominativo: nominativo,
+                incarico: incarico,
+                inquadramento: inquadramento,
+                partita_iva: piva || null,
+                ip_dispositivo: disp || "Postazione Direzionale",
+                data_sottoscrizione: new Date().toISOString(),
+                url_firma: dataUrlFirma
+            };
+
+            fbDb.ref(`gestionale_db/nomine_privacy/${idNomina}`).set(recordNomina).then(() => {
+                const logId = Date.now() + 1;
+                fbDb.ref(`gestionale_db/audit_logs/${logId}`).set({
+                    id: logId,
+                    timestamp: new Date().toISOString(),
+                    operatore_id: operatoreCorrente ? operatoreCorrente.id : "DIR",
+                    operatore_nome: operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}` : "Direzione",
+                    ospite_id: "-",
+                    ospite_nome: "Generale / Struttura",
+                    tipo_operazione: "INSERIMENTO",
+                    modulo: "NOMINE GDPR",
+                    dettaglio: `Sottoscritto Atto di Nomina GDPR Art. 28/29 per: ${nominativo} (${incarico} - ${inquadramento})`
+                });
+
+                alert("✅ Atto di Nomina GDPR sottoscritto e archiviato con successo!");
+                document.getElementById('nom_nominativo').value = '';
+                document.getElementById('nom_piva').value = '';
+                document.getElementById('nom_seleziona_op').value = '';
+                pulisciCanvasFirma();
+            });
+        }
+
+        function renderTabellaNominePrivacy() {
+            const tbody = document.getElementById('tabella-nomine-privacy');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            let nomine = [...(db.nomine_privacy || [])];
+            if(nomine.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:25px; color:#64748b;">Nessun Atto di Nomina presente in archivio. Utilizza il modulo qui sopra per far firmare gli incaricati.</td></tr>';
+                return;
+            }
+
+            nomine.sort((a,b) => String(b.data_sottoscrizione || '').localeCompare(String(a.data_sottoscrizione || ''))).forEach(n => {
+                const ts = String(n.data_sottoscrizione || '');
+                const dateStr = ts.length >= 19 ? `${formattaData(ts.substring(0,10))} ore ${ts.substring(11,16)}` : (ts || '-');
+                const thumb = n.url_firma ? `<img src="${n.url_firma}" class="img-thumbnail" alt="Firma">` : '-';
+
+                tbody.innerHTML += `<tr>
+                    <td><strong>${dateStr}</strong></td>
+                    <td><strong>${n.nominativo}</strong></td>
+                    <td><span class="badge-ruolo">${n.incarico}</span></td>
+                    <td><strong>${n.inquadramento}</strong>${n.partita_iva ? `<br><small>P.IVA/Ditta: ${n.partita_iva}</small>` : ''}</td>
+                    <td style="text-align:center;">${thumb}</td>
+                    <td style="text-align:center;" class="no-print">
+                        <button class="btn btn-primary btn-sm" onclick="stampaAttoNomina('${n.id}')">📄 Stampa Atto Completo</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        function stampaAttoNomina(idKey) {
+            const n = db.nomine_privacy.find(x => String(x.id) === String(idKey));
+            if(!n) return;
+            const overlay = document.getElementById('stampa-atto-overlay');
+            const ts = String(n.data_sottoscrizione || '');
+            const dateStr = ts.length >= 19 ? `${formattaData(ts.substring(0,10))} alle ore ${ts.substring(11,16)}` : '-';
+
+            overlay.innerHTML = `
+                <div class="no-print" style="text-align:center; padding:15px; background:#0f172a; margin-bottom:20px;">
+                    <button class="btn btn-warning" onclick="window.print()">🖨️ Stampa Atto Ufficiale A4</button>
+                    <button class="btn btn-danger" onclick="chiudiStampaAtto()">❌ Chiudi Anteprima</button>
+                </div>
+                <div style="max-width:800px; margin:0 auto; font-family:'Times New Roman', serif; line-height:1.65; text-align:justify; padding:10px 20px; color:#000;">
+                    <div style="text-align:center; border-bottom:2px solid #0f766e; padding-bottom:12px; margin-bottom:25px;">
+                        <h1 style="margin:0; color:#0f766e; font-size:20pt; text-transform:uppercase;">Residenza Servita per Anziani "Ponte D'Oro"</h1>
+                        <p style="margin:4px 0 0 0; font-size:11pt;">Via Sardegna 10, 05100 Terni (TR) • Autorizzazione Comune di Terni / USL Umbria 2</p>
+                    </div>
+
+                    <h3 style="text-align:center; text-decoration:underline; margin-bottom:5px;">ATTO FORMALE DI DESIGNAZIONE E ISTRUZIONI OPERATIVE AL TRATTAMENTO DEI DATI</h3>
+                    <p style="text-align:center; font-weight:bold; margin-top:0; font-size:10.5pt;">(Ai sensi degli Artt. 28 e 29 del Regolamento UE 2016/679 GDPR e Art. 2-quaterdecies D.Lgs. 196/2003 e s.m.i.)</p>
+                    
+                    <p>Il Titolare del Trattamento della <strong>Residenza Servita "Ponte D'Oro"</strong>, con il presente atto formale avente valore legale, designa il/la professionista:</p>
+                    
+                    <div style="background:#f8fafc; border:1px solid #000; padding:14px 18px; margin:15px 0;">
+                        <p style="margin:4px 0;"><strong>Soggetto Designato:</strong> ${n.nominativo}</p>
+                        <p style="margin:4px 0;"><strong>Profilo di Accesso RBAC / Qualifica:</strong> ${n.incarico}</p>
+                        <p style="margin:4px 0;"><strong>Inquadramento Giuridico:</strong> ${n.inquadramento} ${n.partita_iva ? `• P.IVA / Rif. Ditta: ${n.partita_iva}` : ''}</p>
+                    </div>
+
+                    <p>quale <strong>SOGGETTO AUTORIZZATO AL TRATTAMENTO DEI DATI PERSONALI E PARTICOLARI EX ART. 9 GDPR</strong> (dati relativi allo stato di salute, anamnesi, piani terapeutici, schede B.I.N.A./P.A.I. e diario assistenziale degli ospiti), impartendo le seguenti istruzioni vincolanti:</p>
+
+                    <p><strong>1. Principio di Necessità e Minimizzazione (Art. 5 e 9 GDPR):</strong> L'incaricato è autorizzato ad accedere ai soli dati strettamente indispensabili per l'espletamento delle proprie mansioni secondo il profilo RBAC assegnato.</p>
+                    <p><strong>2. Segreto Professionale e Divieto di Diffusione:</strong> È fatto divieto assoluto di comunicare a terzi non legittimati, fotografare con dispositivi personali o diffondere informazioni sanitarie o anagrafiche degli ospiti, obbligo che permane anche dopo la cessazione del rapporto lavorativo o di appalto.</p>
+                    <p><strong>3. Custodia Credenziali (PIN) e Tracciamento Audit (Art. 32 GDPR):</strong> Il codice PIN assegnato è strettamente personale e incedibile. Ogni operazione eseguita sul gestionale è registrata in modo immutabile nel Registro Audit Forense con marca temporale.</p>
+                    <p><strong>4. Segnalazione Incidenti (Data Breach - Art. 33 GDPR):</strong> Qualsiasi anomalia o sospetta violazione dei dati deve essere comunicata immediatamente alla Direzione della Struttura.</p>
+
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:45px; page-break-inside:avoid;">
+                        <div>
+                            <p style="margin:4px 0;"><strong>Luogo e Data di Sottoscrizione Digitale:</strong><br>Terni, ${dateStr}</p>
+                            <p style="margin:4px 0; font-size:10pt;"><strong>Postazione:</strong> ${n.ip_dispositivo || "Postazione Direzionale Ponte D'Oro"}</p>
+                        </div>
+                        <div style="text-align:center;">
+                            <p style="margin-bottom:5px;"><strong>Firma Autografa per Presa Visione e Accettazione</strong></p>
+                            <img src="${n.url_firma}" style="max-width:230px; max-height:90px; border-bottom:1px solid #000;">
+                            <p style="margin-top:4px;"><em>${n.nominativo}</em></p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            overlay.style.display = 'block';
+            document.body.classList.add('stampa-atto-mode');
+        }
+
+        function chiudiStampaAtto() {
+            document.getElementById('stampa-atto-overlay').style.display = 'none';
+            document.body.classList.remove('stampa-atto-mode');
+        }
+    </script>
+</body>
+</html>

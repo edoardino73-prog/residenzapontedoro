@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheda Terapeutica Unica & Prontuario - Residenza Ponte D'Oro</title>
+    
+    <!-- Firebase v8 SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            background-color: #f1f5f9; 
+            color: #1e293b; 
+        }
+
+        /* TOPBAR */
+        .topbar {
+            background: #1e293b;
+            color: white;
+            padding: 14px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .topbar h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+        .badge-ruolo { background: #0f766e; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+
+        .container { max-width: 1320px; margin: 25px auto; padding: 0 20px 40px 20px; }
+
+        /* BANNER SELEZIONE OSPITE */
+        .ospite-selector-card {
+            background: #ffffff;
+            border: 2px solid #0f766e;
+            border-radius: 10px;
+            padding: 18px 22px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .ospite-selector-card label {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f766e;
+            text-transform: uppercase;
+        }
+        .ospite-selector-card select {
+            flex: 1;
+            min-width: 280px;
+            padding: 11px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid #0f766e;
+            border-radius: 6px;
+            background: #f8fafc;
+            color: #0f172a;
+        }
+
+        /* BOX E TABELLE */
+        .card-section {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        .card-section h3 {
+            margin-top: 0;
+            color: #0f172a;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .form-box {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid #0f766e;
+            border: 1px solid #cbd5e1;
+            margin-bottom: 25px;
+        }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        .form-group { flex: 1; display: flex; flex-direction: column; min-width: 220px; }
+        label { font-size: 12.5px; font-weight: bold; color: #334155; margin-bottom: 5px; }
+        input, select, textarea { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        input:focus, select:focus { outline: none; border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15); }
+
+        .orari-check-grid {
+            display: flex;
+            gap: 15px;
+            background: #ffffff;
+            padding: 12px 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            flex-wrap: wrap;
+        }
+        .orari-check-grid label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13.5px;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13.5px; }
+        th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; vertical-align: middle; }
+        th { background-color: #f8fafc; color: #334155; font-weight: 700; }
+
+        /* MINIATURE RICETTE MMG */
+        .thumbs-container {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .thumb-ricetta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f8fafc;
+            border: 1px solid #94a3b8;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .thumb-ricetta:hover {
+            background: #e0f2fe;
+            border-color: #0284c7;
+            transform: translateY(-1px);
+        }
+        .thumb-ricetta img {
+            width: 38px;
+            height: 38px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+        }
+        .thumb-pdf-badge {
+            width: 38px;
+            height: 38px;
+            background: #fee2e2;
+            color: #dc2626;
+            font-weight: bold;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            border: 1px solid #fecaca;
+        }
+
+        /* PULSANTI */
+        .btn { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; text-decoration: none; }
+        .btn-sm { padding: 6px 10px; font-size: 12px; }
+        .btn-teal { background: #0f766e; }
+        .btn-primary { background: #0284c7; }
+        .btn-success { background: #16a34a; }
+        .btn-warning { background: #f59e0b; }
+        .btn-danger { background: #dc2626; }
+        .btn-dark { background: #334155; }
+
+        /* MODALE VISUALIZZATORE RICETTA STAMPABILE */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 22px; border-radius: 10px; width: 95%; max-width: 900px; height: 90vh; display: flex; flex-direction: column; border-top: 6px solid #0f766e; }
+        #viewer-box { flex: 1; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 10px; }
+
+        /* INTESTAZIONE UFFICIALE STAMPA */
+        .print-header-ufficiale {
+            display: none;
+            text-align: center;
+            border-bottom: 2px solid #0f766e;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            font-family: 'Times New Roman', Times, serif;
+        }
+        .print-header-ufficiale h1 { margin: 0; font-size: 20pt; color: #0f766e; text-transform: uppercase; }
+        .print-header-ufficiale p { margin: 4px 0 0 0; font-size: 10.5pt; color: #334155; }
+        .print-meta-bar { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; font-size: 11pt; font-weight: bold; color: #000; }
+        .print-footer-firme { display: none; margin-top: 45px; justify-content: space-between; font-family: 'Times New Roman', Times, serif; font-size: 11pt; page-break-inside: avoid; }
+        .print-footer-firme div { width: 42%; border-top: 1px solid #000; padding-top: 6px; text-align: center; }
+
+        @media print {
+            @page { margin: 12mm; size: A4 landscape; }
+            .no-print, .topbar, .ospite-selector-card, .form-box, .btn { display: none !important; }
+            body, .container, .card-section { background: white !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border: none !important; width: 100% !important; }
+            .print-header-ufficiale { display: block !important; }
+            .print-footer-firme { display: flex !important; }
+            table { width: 100% !important; border-collapse: collapse !important; font-size: 10pt !important; }
+            th, td { border: 1px solid #000 !important; padding: 6px !important; color: #000 !important; }
+            th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PRONTUARIO FARMACEUTICO ESTESO (OLTRE 160 FARMACI GERIATRICI E OSPEDALIERI) -->
+    <datalist id="prontuario_farmaci">
+        <!-- CARDIOVASCOLARI E ANTIPERTENSIVI -->
+        <option value="Cardioaspirina 100mg (Acido Acetilsalicilico)">
+        <option value="Lasix 25mg (Furosemide) compresse">
+        <option value="Lasix 20mg/2ml (Furosemide) fiale">
+        <option value="Lasix 500mg (Furosemide)">
+        <option value="Luvion 50mg (Canrenone)">
+        <option value="Luvion 100mg (Canrenone)">
+        <option value="Aldactone 25mg (Spironolattone)">
+        <option value="Aldactone 100mg (Spironolattone)">
+        <option value="Norvasc 5mg (Amlodipina)">
+        <option value="Norvasc 10mg (Amlodipina)">
+        <option value="Triatec 2.5mg (Ramipril)">
+        <option value="Triatec 5mg (Ramipril)">
+        <option value="Triatec 10mg (Ramipril)">
+        <option value="Enapren 5mg (Enalapril)">
+        <option value="Enapren 20mg (Enalapril)">
+        <option value="Zestril 20mg (Lisinopril)">
+        <option value="Tareg 80mg (Valsartan)">
+        <option value="Tareg 160mg (Valsartan)">
+        <option value="Aprovel 150mg (Irbesartan)">
+        <option value="Aprovel 300mg (Irbesartan)">
+        <option value="Lortaan 50mg (Losartan)">
+        <option value="Lortaan 100mg (Losartan)">
+        <option value="Micardis 40mg (Telmisartan)">
+        <option value="Micardis 80mg (Telmisartan)">
+        <option value="Olpress 20mg (Olmesartan)">
+        <option value="Plaunac 20mg (Olmesartan)">
+        <option value="Congescor 1.25mg (Bisoprololo)">
+        <option value="Congescor 2.5mg (Bisoprololo)">
+        <option value="Congescor 3.75mg (Bisoprololo)">
+        <option value="Congescor 5mg (Bisoprololo)">
+        <option value="Sequacor 1.25mg (Bisoprololo)">
+        <option value="Sequacor 2.5mg (Bisoprololo)">
+        <option value="Lobivon 5mg (Nebivololo)">
+        <option value="Dilatrend 6.25mg (Carvedilolo)">
+        <option value="Dilatrend 25mg (Carvedilolo)">
+        <option value="Seloken 100mg (Metoprololo)">
+        <option value="Tenormin 100mg (Atenololo)">
+        <option value="Cordarone 200mg (Amiodarone)">
+        <option value="Lanoxin 0.0625mg (Digossina)">
+        <option value="Lanoxin 0.125mg (Digossina)">
+        <option value="Lanoxin 0.250mg (Digossina)">
+        <option value="Almarytm 100mg (Flecainide)">
+        <option value="Rytmonorm 150mg (Propafenone)">
+        <option value="Adalat Crono 20mg (Nifedipina)">
+        <option value="Adalat Crono 30mg (Nifedipina)">
+        <option value="Cardura 2mg (Doxazosina)">
+        <option value="Cardura 4mg (Doxazosina)">
+        <option value="Catapresan 150mcg (Clonidina)">
+        <option value="Nitroderm TTS 5mg (Nitroglicerina cerotto)">
+        <option value="Nitroderm TTS 10mg (Nitroglicerina cerotto)">
+        <option value="Monoket 20mg (Isosorbide Mononitrato)">
+        <option value="Entresto 24mg/26mg (Sacubitril/Valsartan)">
+        <option value="Entresto 49mg/51mg (Sacubitril/Valsartan)">
+        <!-- ANTICOAGULANTI E ANTIAGGREGANTI -->
+        <option value="Eliquis 2.5mg (Apixaban)">
+        <option value="Eliquis 5mg (Apixaban)">
+        <option value="Xarelto 15mg (Rivaroxaban)">
+        <option value="Xarelto 20mg (Rivaroxaban)">
+        <option value="Pradaxa 110mg (Dabigatran)">
+        <option value="Pradaxa 150mg (Dabigatran)">
+        <option value="Lixiana 30mg (Edoxaban)">
+        <option value="Lixiana 60mg (Edoxaban)">
+        <option value="Coumadin 5mg (Warfarin)">
+        <option value="Sintrom 4mg (Acenocumarolo)">
+        <option value="Plavix 75mg (Clopidogrel)">
+        <option value="Tiklid 250mg (Ticlopidina)">
+        <option value="Brilique 90mg (Ticagrelor)">
+        <option value="Clexane 4000 UI (Enoxaparina siringhe)">
+        <option value="Clexane 6000 UI (Enoxaparina siringhe)">
+        <option value="Inhixa 4000 UI (Enoxaparina siringhe)">
+        <option value="Arixtra 2.5mg (Fondaparinux)">
+        <!-- IPOLIPEMIZZANTI -->
+        <option value="Torvast 10mg (Atorvastatina)">
+        <option value="Torvast 20mg (Atorvastatina)">
+        <option value="Torvast 40mg (Atorvastatina)">
+        <option value="Crestor 5mg (Rosuvastatina)">
+        <option value="Crestor 10mg (Rosuvastatina)">
+        <option value="Crestor 20mg (Rosuvastatina)">
+        <option value="Sinvacor 20mg (Simvastatina)">
+        <option value="Zetia 10mg (Ezetimibe)">
+        <option value="Inegy 10mg/20mg (Ezetimibe/Simvastatina)">
+        <option value="Eskim 1000mg (Omega 3)">
+        <!-- SISTEMA NERVOSO, NEUROLOGIA E PSICHIATRIA -->
+        <option value="Tavor 1mg (Lorazepam)">
+        <option value="Tavor 2.5mg (Lorazepam)">
+        <option value="Tavor Gocce 2mg/ml (Lorazepam)">
+        <option value="Xanax 0.25mg (Alprazolam)">
+        <option value="Xanax 0.50mg (Alprazolam)">
+        <option value="Xanax Gocce (Alprazolam)">
+        <option value="EN Gocce (Delorazepam)">
+        <option value="Valium Gocce (Diazepam)">
+        <option value="Minias Gocce 2.5mg/ml (Lormetazepam)">
+        <option value="Stilnox 10mg (Zolpidem)">
+        <option value="Halcion 0.25mg (Triazolam)">
+        <option value="Seroquel 25mg (Quetiapina)">
+        <option value="Seroquel 50mg RP (Quetiapina)">
+        <option value="Seroquel 100mg (Quetiapina)">
+        <option value="Seroquel 200mg (Quetiapina)">
+        <option value="Serenase Gocce 2mg/ml (Aloperidolo)">
+        <option value="Haldol 2mg/ml Gocce (Aloperidolo)">
+        <option value="Talofen Gocce (Promazina)">
+        <option value="Risperdal 1mg (Risperidone)">
+        <option value="Risperdal Soluzione 1mg/ml (Risperidone)">
+        <option value="Zyprexa 5mg (Olanzapina)">
+        <option value="Zyprexa 10mg (Olanzapina)">
+        <option value="Leponex 25mg (Clozapina)">
+        <option value="Zoloft 50mg (Sertralina)">
+        <option value="Zoloft 100mg (Sertralina)">
+        <option value="Cipralex 10mg (Escitalopram)">
+        <option value="Cipralex Gocce (Escitalopram)">
+        <option value="Elopram 20mg (Citalopram)">
+        <option value="Elopram Gocce (Citalopram)">
+        <option value="Sereupin 20mg (Paroxetina)">
+        <option value="Daparox Gocce (Paroxetina)">
+        <option value="Efexor 75mg RP (Venlafaxina)">
+        <option value="Cymbalta 60mg (Duloxetina)">
+        <option value="Trittico 75mg (Trazodone)">
+        <option value="Trittico Gocce (Trazodone)">
+        <option value="Remeron 30mg (Mirtazapina)">
+        <option value="Sinemet 100mg+25mg (Levodopa/Carbidopa)">
+        <option value="Sinemet 250mg+25mg (Levodopa/Carbidopa)">
+        <option value="Madopar 200mg+50mg (Levodopa/Benserazide)">
+        <option value="Mirapexin 0.18mg (Pramipexolo)">
+        <option value="Neupro Cerotto 4mg/24h (Rotigotina)">
+        <option value="Aricept 5mg (Donepezil)">
+        <option value="Aricept 10mg (Donepezil)">
+        <option value="Ebixa 10mg (Memantina)">
+        <option value="Ebixa 20mg (Memantina)">
+        <option value="Exelon Cerotto 4.6mg (Rivastigmina)">
+        <option value="Exelon Cerotto 9.5mg (Rivastigmina)">
+        <option value="Keppra 500mg (Levetiracetam)">
+        <option value="Keppra 1000mg (Levetiracetam)">
+        <option value="Depakin Chrono 300mg (Valproato)">
+        <option value="Depakin Chrono 500mg (Valproato)">
+        <option value="Tegretol 200mg (Carbamazepina)">
+        <option value="Lyrica 75mg (Pregabalin)">
+        <option value="Neurontin 300mg (Gabapentin)">
+        <!-- GASTROENTEROLOGIA -->
+        <option value="Pantorc 20mg (Pantoprazolo)">
+        <option value="Pantorc 40mg (Pantoprazolo)">
+        <option value="Lucen 20mg (Esomeprazolo)">
+        <option value="Lucen 40mg (Esomeprazolo)">
+        <option value="Lansox 15mg (Lansoprazolo)">
+        <option value="Lansox 30mg (Lansoprazolo)">
+        <option value="Mepral 20mg (Omeprazolo)">
+        <option value="Gaviscon Bustine 500mg/267mg">
+        <option value="Maalox Sospensione Orale">
+        <option value="Plasil 10mg (Metoclopramide)">
+        <option value="Peridon 10mg (Domperidone)">
+        <option value="Laevolac Sciroppo (Lattulosio)">
+        <option value="Duphalac Sciroppo (Lattulosio)">
+        <option value="Movicol Bustine (Macrogol)">
+        <option value="Selg Esse Bustine">
+        <option value="Guttalax Gocce (Sodio Picosolfato)">
+        <option value="Imodium 2mg (Loperamide)">
+        <option value="Dissenten 2mg (Loperamide)">
+        <option value="Normix 200mg (Rifaximina)">
+        <option value="Codex 5 Miliardi (Saccharomyces boulardii)">
+        <option value="Enterogermina 4 Miliardi fiale">
+        <option value="Deursil 300mg (Acido Ursodesossicolico)">
+        <!-- DIABETE E METABOLISMO -->
+        <option value="Metforal 500mg (Metformina)">
+        <option value="Metforal 850mg (Metformina)">
+        <option value="Metforal 1000mg (Metformina)">
+        <option value="Glucophage 1000mg (Metformina)">
+        <option value="Diamicron 30mg RM (Gliclazide)">
+        <option value="Novonorm 1mg (Repaglinide)">
+        <option value="Januvia 100mg (Sitagliptin)">
+        <option value="Trajenta 5mg (Linagliptin)">
+        <option value="Jardiance 10mg (Empagliflozin)">
+        <option value="Forxiga 10mg (Dapagliflozin)">
+        <option value="Insulina Lantus Solostar (Glargine)">
+        <option value="Insulina Toujeo Solostar (Glargine)">
+        <option value="Insulina Novorapid Flexpen (Aspart)">
+        <option value="Insulina Humalog Kwikpen (Lispro)">
+        <option value="Eutirox 25mcg (Levotiroxina)">
+        <option value="Eutirox 50mcg (Levotiroxina)">
+        <option value="Eutirox 75mcg (Levotiroxina)">
+        <option value="Eutirox 100mcg (Levotiroxina)">
+        <option value="Tapazole 5mg (Tiamazolo)">
+        <option value="Zyloric 100mg (Allopurinolo)">
+        <option value="Zyloric 300mg (Allopurinolo)">
+        <option value="Adenuric 80mg (Febuxostat)">
+        <!-- ANALGESICI, ANTINFIAMMATORI E CORTISONICI -->
+        <option value="Tachipirina 500mg (Paracetamolo)">
+        <option value="Tachipirina 1000mg (Paracetamolo)">
+        <option value="Tachipirina Gocce / Sciroppo">
+        <option value="Tachidol Bustine 500mg+30mg (Paracetamolo/Codeina)">
+        <option value="Coefferelgan 500mg+30mg">
+        <option value="Contramal Gocce 100mg/ml (Tramadolo)">
+        <option value="Contramal 50mg (Tramadolo)">
+        <option value="Kolibri 37.5mg/325mg (Tramadolo/Paracetamolo)">
+        <option value="Palexia 50mg RP (Tapentadolo)">
+        <option value="Targin 5mg/2.5mg (Ossicodone/Naloxone)">
+        <option value="Targin 10mg/5mg (Ossicodone/Naloxone)">
+        <option value="Durogesic Cerotto 12mcg/h (Fentanil)">
+        <option value="Durogesic Cerotto 25mcg/h (Fentanil)">
+        <option value="Brufen 600mg (Ibuprofene)">
+        <option value="Oki 80mg Bustine (Ketoprofene)">
+        <option value="Voltaren 75mg/3ml Fiale (Diclofenac)">
+        <option value="Toradol 30mg/ml Gocce / Fiale (Ketorolac)">
+        <option value="Deltacortene 5mg (Prednisone)">
+        <option value="Deltacortene 25mg (Prednisone)">
+        <option value="Medrol 4mg (Metilprednisolone)">
+        <option value="Medrol 16mg (Metilprednisolone)">
+        <option value="Bentelan 1mg Compresse Effervescenti (Betametasone)">
+        <option value="Bentelan 4mg/2ml Fiale (Betametasone)">
+        <!-- ANTIBIOTICI -->
+        <option value="Augmentin 875mg+125mg (Amoxicillina/Ac. Clavulanico)">
+        <option value="Zimox 1g (Amoxicillina)">
+        <option value="Rocefin 1g Fiale IM/EV (Ceftriaxone)">
+        <option value="Cefixoral 400mg (Cefixima)">
+        <option value="Ciproxin 500mg (Ciprofloxacina)">
+        <option value="Tavanic 500mg (Levofloxacina)">
+        <option value="Zitromax 500mg (Azitromicina)">
+        <option value="Klacid 500mg (Claritromicina)">
+        <option value="Monuril 3g Bustine (Fosfomicina)">
+        <option value="Neo-Furadantin 50mg (Nitrofurantoina)">
+        <!-- UROLOGIA, RESPIRATORIO E INTEGRATORI -->
+        <option value="Omnic 0.4mg (Tamsulosina)">
+        <option value="Xatral 10mg (Alfuzosina)">
+        <option value="Avodart 0.5mg (Dutasteride)">
+        <option value="Proscar 5mg (Finasteride)">
+        <option value="Spiriva Respimat (Tiotropio)">
+        <option value="Foster Spray Inalatore">
+        <option value="Ventolin Spray (Salbutamolo)">
+        <option value="Clenil Aerosol Fiale (Beclometasone)">
+        <option value="Atem Aerosol Soluzione (Ipratropio)">
+        <option value="Fluimucil 600mg Bustine (Acetilcisteina)">
+        <option value="Bisolvon Sciroppo / Gocce (Bromexina)">
+        <option value="Dibase 10.000 UI/ml Gocce (Colecalciferolo Vit. D)">
+        <option value="Dibase 25.000 UI Flaconcino (Colecalciferolo Vit. D)">
+        <option value="Folina 5mg (Acido Folico)">
+        <option value="Dobetin 1000mcg Fiale (Vitamina B12)">
+        <option value="Sideral Forte Capsule (Ferro)">
+        <option value="Ferrograd 105mg (Ferro Solfato)">
+        <option value="Polase Bustine (Potassio e Magnesio)">
+        <option value="Lento-Kalium 600mg (Potassio Cloruro)">
+        <option value="Lacrime Artificiali Collirio">
+        <option value="Xalatan Collirio (Latanoprost)">
+        <option value="Cosopt Collirio (Dorzolamide/Timololo)">
+    </datalist>
+
+    <!-- MODALE VISUALIZZATORE E STAMPA RICETTA MMG -->
+    <div id="modal-viewer-ricetta" class="modal-overlay no-print">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 id="viewer-titolo" style="margin:0; color:#0f766e;">📄 Prescrizione Medica MMG</h3>
+                <button class="btn btn-dark btn-sm" onclick="chiudiViewerRicetta()">❌ Chiudi</button>
+            </div>
+            <div id="viewer-box"></div>
+            <div style="display:flex; gap:12px; justify-content:center; margin-top:15px;">
+                <button class="btn btn-warning" onclick="stampaRicettaCorrente()">🖨️ Stampa Questa Prescrizione</button>
+                <a id="btn-download-ricetta" href="#" target="_blank" class="btn btn-primary">💾 Apri / Scarica File Originale</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOPBAR -->
+    <div class="topbar no-print">
+        <h2>💊 Scheda Terapeutica Unica & Prontuario Farmaci</h2>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span>👤 Operatore: <strong id="op-nome">Caricamento...</strong></span>
+            <span class="badge-ruolo" id="op-ruolo">-</span>
+            <a href="index.html" class="btn btn-dark btn-sm">🏛️ Torna al Gestionale</a>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <!-- INTESTAZIONE UFFICIALE PER STAMPA -->
+        <div class="print-header-ufficiale">
+            <h1>Residenza Servita per Anziani "Ponte D'Oro"</h1>
+            <p>Via Sardegna 10, 05100 Terni (TR) • Autorizzazione Comune di Terni / USL Umbria 2</p>
+            <div class="print-meta-bar">
+                <span>SCHEDA TERAPEUTICA INDIVIDUALE • OSPITE: <u id="print-ospite-nome"></u></span>
+                <span id="print-data-emissione"></span>
+            </div>
+        </div>
+
+        <!-- SELETTORE OSPITE -->
+        <div class="ospite-selector-card no-print">
+            <label>👤 Seleziona Ospite per visualizzare e gestire la Terapia:</label>
+            <select id="terapia_ospite_selettore" onchange="aggiornaVistaTerapia()"></select>
+            <button class="btn btn-warning" onclick="stampaSchedaTerapia()">🖨️ Stampa Scheda Terapeutica Ospite</button>
+        </div>
+
+        <div id="messaggio-seleziona-ospite" class="card-section no-print" style="text-align:center; padding:45px; color:#0f766e; font-size:16px; font-weight:bold;">
+            ⬆️ Seleziona un ospite dal menu a tendina qui sopra per aprire il suo Piano Terapeutico individuale.
+        </div>
+
+        <!-- CONTENUTO TERAPIA OSPITE SELEZIONATO -->
+        <div id="terapia_content" style="display:none;">
+
+            <!-- FORM INSERIMENTO FARMACO DAL PRONTUARIO + FOTO MULTIPLE RICETTA MMG -->
+            <div class="form-box no-print" id="box-aggiungi-terapia">
+                <h3 style="margin-top:0; color:#0f766e; border-bottom:1px dashed #cbd5e1; padding-bottom:8px;">
+                    ➕ Prescrizione Nuovo Farmaco dal Prontuario (Medici / Infermieri)
+                </h3>
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label>Farmaco (Digita o Scegli dal Prontuario di oltre 160 farmaci) *</label>
+                        <input type="text" id="terapia_farmaco" list="prontuario_farmaci" placeholder="Inizia a digitare il nome o principio attivo (es. Cardioaspirina, Lasix, Tavor)...">
+                    </div>
+                    <div class="form-group" style="flex:1.5;">
+                        <label>Posologia / Dosaggio / Note Somministrazione *</label>
+                        <input type="text" id="terapia_posologia" placeholder="Es. 1 compressa a stomaco pieno">
+                    </div>
+                </div>
+
+                <label>Fasce Orarie di Somministrazione *</label>
+                <div class="orari-check-grid" style="margin-bottom:15px;">
+                    <label><input type="checkbox" class="terapia-orario-chk" value="Colazione"> ☕ Colazione (08:00)</label>
+                    <label><input type="checkbox" class="terapia-orario-chk" value="Pranzo"> 🍝 Pranzo (12:00)</label>
+                    <label><input type="checkbox" class="terapia-orario-chk" value="Cena"> 🍲 Cena (19:00)</label>
+                    <label><input type="checkbox" class="terapia-orario-chk" value="Notte"> 🌙 Notte (22:00)</label>
+                    <label><input type="checkbox" class="terapia-orario-chk" value="Al bisogno"> 🆘 Al bisogno (AB)</label>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="background:#fffbeb; padding:14px; border-radius:8px; border:2px dashed #f59e0b;">
+                        <label style="color:#b45309; font-size:13.5px;">📸 Allega Una o Più Foto / PDF della Prescrizione del MMG (Selezione Multipla Abilitata)</label>
+                        <input type="file" id="terapia_files_multi" accept="image/*,application/pdf" multiple>
+                        <small style="color:#78350f; margin-top:4px;">Puoi selezionare più foto o scansioni contemporaneamente. Verranno mostrate in miniatura apribile e stampabile.</small>
+                    </div>
+                </div>
+
+                <button class="btn btn-success" id="btn-salva-terapia" onclick="aggiungiTerapia()">💾 Salva Farmaco e Allegati in Cartella</button>
+            </div>
+
+            <!-- PROSPETTO ORARIO GIORNALIERO -->
+            <div class="card-section">
+                <h3>🕒 Prospetto Giornaliero di Somministrazione per Fascia Oraria</h3>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="background-color: #f59e0b; color: white; width: 20%; text-align:center;">☕ Colazione (08:00)</th>
+                                <th style="background-color: #ea580c; color: white; width: 20%; text-align:center;">🍝 Pranzo (12:00)</th>
+                                <th style="background-color: #c2410c; color: white; width: 20%; text-align:center;">🍲 Cena (19:00)</th>
+                                <th style="background-color: #1e293b; color: white; width: 20%; text-align:center;">🌙 Notte (22:00)</th>
+                                <th style="background-color: #dc2626; color: white; width: 20%; text-align:center;">🆘 Al Bisogno</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-somministrazioni"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ELENCO DETTAGLIATO FARMACI E MINIATURE RICETTE MMG -->
+            <div class="card-section">
+                <h3>📋 Elenco Farmaci Prescritti & Miniature Ricette MMG</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:24%;">Farmaco Prescritto</th>
+                            <th style="width:20%;">Posologia</th>
+                            <th style="width:16%;">Fasce Orarie</th>
+                            <th style="width:24%;">Prescrizioni MMG (Miniature Apribili & Stampabili)</th>
+                            <th style="width:10%;">Inserito Da</th>
+                            <th style="width:6%;" class="no-print">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabella-terapie"></tbody>
+                </table>
+
+                <div class="print-footer-firme">
+                    <div>Il Medico / Coordinatore Sanitario<br><small id="print-op-firma"></small></div>
+                    <div>Firma Infermiere Somministratore<br><small>(Verifica e controllo terapia)</small></div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2a7aK5Ze4mFF7ku4eFiz4or1pImHXoiA",
+            authDomain: "residenza-ponte-d-oro.firebaseapp.com",
+            databaseURL: "https://residenza-ponte-d-oro-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "residenza-ponte-d-oro",
+            storageBucket: "residenza-ponte-d-oro.firebasestorage.app",
+            messagingSenderId: "646708586773",
+            appId: "1:646708586773:web:a9d1956abdf72ace4ba11c"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const fbDb = firebase.database();
+        const fbStorage = firebase.storage();
+
+        let dbOspiti = [];
+        let dbTerapie = [];
+        let operatoreCorrente = null;
+        let ricettaAttivaUrl = null;
+        let ricettaAttivaTitolo = "";
+
+        function forceArray(data) {
+            if (!data) return [];
+            return (Array.isArray(data) ? data : Object.values(data).filter(item => item !== null)).sort((a,b) => b.id - a.id);
+        }
+
+        /* --- SESSIONE E PERMESSI --- */
+        function verificaSessione() {
+            try {
+                const salvato = localStorage.getItem('ponte_doro_logged_op') || sessionStorage.getItem('ponte_doro_desktop_op');
+                if (salvato) {
+                    operatoreCorrente = JSON.parse(salvato);
+                    document.getElementById('op-nome').innerText = `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}`;
+                    document.getElementById('op-ruolo').innerText = operatoreCorrente.incarico;
+
+                    const r = (operatoreCorrente.incarico || "").toLowerCase();
+                    const puoPrescrivere = r.includes("medico") || r.includes("direzione") || r.includes("coordinatore") || r.includes("infermiere");
+                    document.getElementById('box-aggiungi-terapia').style.display = puoPrescrivere ? 'block' : 'none';
+                } else {
+                    document.getElementById('op-nome').innerText = "Operatore Reparto";
+                    document.getElementById('op-ruolo').innerText = "Consultazione";
+                }
+            } catch(e) {}
+        }
+
+        // Accesso riservato al personale: senza il login della struttura si torna a index.html
+        firebase.auth().onAuthStateChanged(u => { if (!u || u.isAnonymous) window.location.replace('index.html'); });
+        firebase.auth().onAuthStateChanged(user => {
+            if(user && !user.isAnonymous) {
+                verificaSessione();
+                fbDb.ref('gestionale_db').on('value', snap => {
+                    const d = snap.val() || {};
+                    dbOspiti = forceArray(d.ospiti).filter(o => !o.fine_servizio);
+                    dbTerapie = forceArray(d.terapie);
+                    popolaSelettoreOspiti();
+                    aggiornaVistaTerapia();
+                });
+            }
+        });
+
+        function popolaSelettoreOspiti() {
+            const sel = document.getElementById('terapia_ospite_selettore');
+            const prec = sel.value || new URLSearchParams(window.location.search).get('id') || "";
+            sel.innerHTML = '<option value="">-- Seleziona Ospite Presente --</option>';
+            dbOspiti.forEach(o => {
+                sel.options.add(new Option(`${o.nome} (CF: ${o.cf || '-'})`, o.id));
+            });
+            if(prec) sel.value = prec;
+        }
+
+        /* --- CARICAMENTO MULTIPLO FOTO/PDF RICETTE MMG --- */
+        async function caricaFilesMultipli(inputId) {
+            const el = document.getElementById(inputId);
+            const files = el?.files;
+            if(!files || files.length === 0) return [];
+            const risultati = [];
+            for(let i = 0; i < files.length; i++) {
+                const f = files[i];
+                const ref = fbStorage.ref().child(`uploads/terapie/${Date.now()}_${i}_${f.name}`);
+                await ref.put(f);
+                const url = await ref.getDownloadURL();
+                risultati.push({ nome: f.name, dati: url });
+            }
+            return risultati;
+        }
+
+        async function aggiungiTerapia() {
+            const ospId = document.getElementById('terapia_ospite_selettore').value;
+            const farmaco = document.getElementById('terapia_farmaco').value.trim();
+            const pos = document.getElementById('terapia_posologia').value.trim();
+            const orariChecked = Array.from(document.querySelectorAll('.terapia-orario-chk:checked')).map(c => c.value);
+
+            if(!ospId) return alert("Seleziona prima un ospite!");
+            if(!farmaco || !pos || orariChecked.length === 0) {
+                return alert("⚠️ Compila il Nome del Farmaco, la Posologia e spunta almeno una Fascia Oraria!");
+            }
+
+            const btn = document.getElementById('btn-salva-terapia');
+            btn.disabled = true;
+            btn.innerText = "⏳ Caricamento prescrizione in corso...";
+
+            try {
+                const allegati = await caricaFilesMultipli('terapia_files_multi');
+                const opName = operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}`.trim() : "Medico/Inf.";
+                const idRec = Date.now();
+
+                const record = {
+                    id: idRec,
+                    ospite_id: ospId,
+                    farmaco: farmaco,
+                    posologia: pos,
+                    orari: orariChecked,
+                    medico: opName,
+                    allegati: allegati,
+                    file: allegati.length > 0 ? allegati[0] : null
+                };
+
+                await fbDb.ref(`gestionale_db/terapie/${idRec}`).set(record);
+
+                // Audit Log
+                const osp = dbOspiti.find(o => String(o.id) === String(ospId));
+                const logId = Date.now() + 1;
+                await fbDb.ref(`gestionale_db/audit_logs/${logId}`).set({
+                    id: logId,
+                    timestamp: new Date().toISOString(),
+                    operatore_id: operatoreCorrente ? operatoreCorrente.id : "MED",
+                    operatore_nome: opName,
+                    ospite_id: String(ospId),
+                    ospite_nome: osp ? osp.nome : "Ospite",
+                    tipo_operazione: "INSERIMENTO",
+                    modulo: "TERAPIA FARMACOLOGICA",
+                    dettaglio: `Prescritto ${farmaco} (${pos}) con ${allegati.length} allegati MMG`
+                });
+
+                document.getElementById('terapia_farmaco').value = '';
+                document.getElementById('terapia_posologia').value = '';
+                document.getElementById('terapia_files_multi').value = '';
+                document.querySelectorAll('.terapia-orario-chk').forEach(c => c.checked = false);
+                alert("✅ Farmaco e prescrizioni MMG salvati con successo!");
+            } catch(err) {
+                alert("❌ Errore salvataggio: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "💾 Salva Farmaco e Allegati in Cartella";
+            }
+        }
+
+        function eliminaFarmaco(id) {
+            if(!confirm("Rimuovere questo farmaco dalla scheda terapeutica dell'ospite?")) return;
+            fbDb.ref(`gestionale_db/terapie/${id}`).remove();
+        }
+
+        /* --- RENDERIZZAZIONE SCHEDA DELL'OSPITE SELEZIONATO --- */
+        function aggiornaVistaTerapia() {
+            const ospId = document.getElementById('terapia_ospite_selettore').value;
+            const cont = document.getElementById('terapia_content');
+            const msg = document.getElementById('messaggio-seleziona-ospite');
+
+            if(!ospId) {
+                cont.style.display = 'none';
+                msg.style.display = 'block';
+                return;
+            }
+            cont.style.display = 'block';
+            msg.style.display = 'none';
+
+            const farmaciOspite = dbTerapie.filter(t => String(t.ospite_id) === String(ospId));
+            const tbodyT = document.getElementById('tabella-terapie');
+            tbodyT.innerHTML = '';
+
+            if(farmaciOspite.length === 0) {
+                tbodyT.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b;">Nessun farmaco attualmente prescritto per questo ospite.</td></tr>';
+            } else {
+                farmaciOspite.forEach(f => {
+                    // Normalizza vecchi allegati singoli + nuovi allegati multipli
+                    let listaFiles = [];
+                    if(Array.isArray(f.allegati) && f.allegati.length > 0) {
+                        listaFiles = f.allegati;
+                    } else if(f.file && f.file.dati) {
+                        listaFiles = [f.file];
+                    }
+
+                    let htmlThumbs = '<span style="color:#94a3b8; font-size:12px;">Nessuna ricetta allegata</span>';
+                    if(listaFiles.length > 0) {
+                        htmlThumbs = `<div class="thumbs-container">` + listaFiles.map((al, idx) => {
+                            const isPdf = (al.nome || al.dati || '').toLowerCase().includes('.pdf');
+                            const safeTitle = `${f.farmaco.replace(/'/g, "\\'")} - Ricetta #${idx+1}`;
+                            if(isPdf) {
+                                return `<div class="thumb-ricetta" onclick="apriViewerRicetta('${al.dati}', '${safeTitle}')">
+                                    <div class="thumb-pdf-badge">PDF</div>
+                                    <span style="font-size:11.5px; font-weight:bold; color:#0284c7;">Ricetta #${idx+1}</span>
+                                </div>`;
+                            } else {
+                                return `<div class="thumb-ricetta" onclick="apriViewerRicetta('${al.dati}', '${safeTitle}')">
+                                    <img src="${al.dati}" alt="Ricetta">
+                                    <span style="font-size:11.5px; font-weight:bold; color:#0f766e;">Foto #${idx+1} 🔎</span>
+                                </div>`;
+                            }
+                        }).join('') + `</div>`;
+                    }
+
+                    tbodyT.innerHTML += `<tr>
+                        <td><strong style="font-size:14.5px; color:#0f172a;">${f.farmaco}</strong></td>
+                        <td>${f.posologia}</td>
+                        <td><span style="font-weight:bold; color:#0f766e;">${(f.orari || []).join(', ')}</span></td>
+                        <td>${htmlThumbs}</td>
+                        <td><small>${f.medico || 'Medico'}</small></td>
+                        <td class="no-print" style="text-align:center;">
+                            <button class="btn btn-danger btn-sm" onclick="eliminaFarmaco(${f.id})">🗑️</button>
+                        </td>
+                    </tr>`;
+                });
+            }
+
+            // Tabella Fasce Orarie
+            const tbodyS = document.getElementById('tbody-somministrazioni');
+            tbodyS.innerHTML = '';
+            if(farmaciOspite.length === 0) {
+                tbodyS.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:15px; color:#64748b;">Nessun farmaco in fascia oraria.</td></tr>';
+                return;
+            }
+
+            const orari = ['Colazione', 'Pranzo', 'Cena', 'Notte', 'Al bisogno'];
+            let riga = '<tr>';
+            orari.forEach(orario => {
+                const fList = farmaciOspite.filter(f => (f.orari || []).includes(orario));
+                let htmlList = fList.map(f => `<div style="padding:8px; border-bottom:1px solid #cbd5e1; background:#fff; margin-bottom:4px; border-radius:4px;">
+                    <strong style="color:#0f172a;">${f.farmaco}</strong><br>
+                    <small style="color:#475569;">${f.posologia}</small>
+                </div>`).join('');
+                if(!htmlList) htmlList = '<div style="color:#94a3b8; text-align:center; padding:10px;">-</div>';
+                riga += `<td style="vertical-align:top; background:#f8fafc;">${htmlList}</td>`;
+            });
+            riga += '</tr>';
+            tbodyS.innerHTML = riga;
+        }
+
+        /* --- VISUALIZZATORE E STAMPA SINGOLA RICETTA MMG --- */
+        function apriViewerRicetta(url, titolo) {
+            ricettaAttivaUrl = url;
+            ricettaAttivaTitolo = titolo || "Prescrizione MMG";
+            document.getElementById('viewer-titolo').innerText = `📄 ${ricettaAttivaTitolo}`;
+            document.getElementById('btn-download-ricetta').href = url;
+
+            const box = document.getElementById('viewer-box');
+            const isPdf = url.toLowerCase().includes('.pdf');
+            if(isPdf) {
+                box.innerHTML = `<iframe src="${url}" style="width:100%; height:100%; border:none;"></iframe>`;
+            } else {
+                box.innerHTML = `<img src="${url}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:4px;">`;
+            }
+            document.getElementById('modal-viewer-ricetta').style.display = 'flex';
+        }
+
+        function chiudiViewerRicetta() {
+            document.getElementById('modal-viewer-ricetta').style.display = 'none';
+            ricettaAttivaUrl = null;
+        }
+
+        function stampaRicettaCorrente() {
+            if(!ricettaAttivaUrl) return;
+            const ospId = document.getElementById('terapia_ospite_selettore').value;
+            const osp = dbOspiti.find(o => String(o.id) === String(ospId));
+            const nomeOsp = osp ? `${osp.nome} (CF: ${osp.cf || '-'})` : "Ospite";
+
+            if(ricettaAttivaUrl.toLowerCase().includes('.pdf')) {
+                window.open(ricettaAttivaUrl, '_blank');
+                return;
+            }
+
+            const w = window.open('', '_blank');
+            w.document.write(`
+                <html>
+                <head><title>Stampa Ricetta MMG - ${nomeOsp}</title></head>
+                <body style="font-family:'Times New Roman',serif; margin:12mm; text-align:center;">
+                    <div style="border-bottom:2px solid #0f766e; padding-bottom:10px; margin-bottom:15px;">
+                        <h2 style="margin:0; color:#0f766e; text-transform:uppercase;">Residenza Servita per Anziani "Ponte D'Oro"</h2>
+                        <p style="margin:4px 0 0 0; font-size:10.5pt;">Via Sardegna 10, 05100 Terni (TR) • Copia Conforme Prescrizione Medica MMG</p>
+                        <p style="margin:6px 0 0 0; font-weight:bold; font-size:11pt;">OSPITE: ${nomeOsp} • ${ricettaAttivaTitolo}</p>
+                    </div>
+                    <img src="${ricettaAttivaUrl}" style="max-width:98%; max-height:80vh; object-fit:contain;">
+                    <script>window.onload = function(){ window.print(); setTimeout(function(){ window.close(); }, 400); };<\/script>
+                </body>
+                </html>
+            `);
+            w.document.close();
+        }
+
+        /* --- STAMPA SCHEDA TERAPEUTICA COMPLETA CON INTESTAZIONE --- */
+        function stampaSchedaTerapia() {
+            const ospId = document.getElementById('terapia_ospite_selettore').value;
+            if(!ospId) return alert("⚠️ Seleziona prima un ospite per stampare la sua Scheda Terapeutica!");
+            const osp = dbOspiti.find(o => String(o.id) === String(ospId));
+            document.getElementById('print-ospite-nome').innerText = osp ? `${osp.nome} (CF: ${osp.cf || '-'})` : "Ospite";
+            document.getElementById('print-data-emissione').innerText = `Data Emissione: ${new Date().toLocaleDateString('it-IT')}`;
+            document.getElementById('print-op-firma').innerText = operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}` : "Direzione Sanitaria";
+            window.print();
+        }
+    </script>
+</body>
+</html>

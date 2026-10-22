@@ -110,6 +110,20 @@
 
         let dbOspiti = [];
 
+        // Data odierna nel fuso del browser (toISOString usa UTC e vicino a mezzanotte dà il giorno sbagliato)
+        function oggiLocale() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        const IT = "100000100";   // codice Stato "ITALIA" nella tabella Stati
+        // Tabella Documenti del portale Alloggiati Web
+        const CODICI_DOC = { "Carta d'Identità": "IDENT", "CIE": "IDELE", "Passaporto": "PASOR", "Patente": "PATEN" };
+
+        function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
         function getSessoOspite(o) {
             if (!o) return null;
             if (o.sesso === "1" || o.sesso === 1 || o.sesso === "M") return "1";
@@ -121,9 +135,15 @@
             return null;
         }
 
-        firebase.auth().signInAnonymously().catch(e => console.error(e));
+        const statoNascita  = o => String(o.luogo_nascita?.stato_codice || IT).trim();
+        const nascitaEstero = o => statoNascita(o) !== IT;
+        const cittadinanza  = o => String(o.cittadinanza_codice || IT).trim();
+
+        /* --- AUTENTICAZIONE ANONIMA OBBLIGATORIA (REGOLE FIREBASE v8) --- */
+        // Accesso riservato al personale: senza il login della struttura si torna a index.html
+        firebase.auth().onAuthStateChanged(u => { if (!u || u.isAnonymous) window.location.replace('index.html'); });
         firebase.auth().onAuthStateChanged(user => {
-            if(user) {
+            if(user && !user.isAnonymous) {
                 fbDb.ref('gestionale_db/ospiti').on('value', snap => {
                     const data = snap.val() || {};
                     dbOspiti = (Array.isArray(data) ? data : Object.values(data).filter(item => item !== null)).sort((a,b) => b.id - a.id);
@@ -133,11 +153,24 @@
         });
 
         document.addEventListener("DOMContentLoaded", () => {
-            document.getElementById('allogg_data_riferimento').value = new Date().toISOString().split('T')[0];
+            document.getElementById('allogg_data_riferimento').value = oggiLocale();
+            aggiornaDataGlobale();
         });
 
-        function cambiaModalitaAlloggiati() { aggiornaTabella(); }
+        const modalita = () => document.getElementById('allogg_modalita').value;
+
+        // In modalità INGRESSO ogni ospite usa la propria data di ingresso: la data globale non serve
+        function aggiornaDataGlobale() {
+            const el = document.getElementById('allogg_data_riferimento');
+            el.disabled = modalita() === "INGRESSO";
+            el.title = el.disabled ? "In modalità Nuovi Ingressi si usa la data di ingresso di ciascun ospite" : "";
+        }
+        function cambiaModalitaAlloggiati() {
+            aggiornaDataGlobale();
+            aggiornaTabella({ resetDate: true });
+        }
         function applicaDataATutti() {
+            if (modalita() === "INGRESSO") return; // non sovrascrive le date di ingresso individuali
             const d = document.getElementById('allogg_data_riferimento').value;
             if(d) document.querySelectorAll('.allogg-row-data').forEach(i => i.value = d);
         }
@@ -150,50 +183,78 @@
 
         function validaDati(o) {
             const e = [];
+            const cod9 = v => /^\d{9}$/.test(String(v || '').trim());
             if (!o.cognome && !o.nome) e.push("Manca Nominativo");
             if (!getSessoOspite(o)) e.push("Manca Sesso");
             if (!o.dob) e.push("Manca Data Nascita");
-            if (!o.luogo_nascita || !o.luogo_nascita.codice_alloggiati) e.push("Manca Codice ISTAT Nascita");
-            if (!o.luogo_nascita || !o.luogo_nascita.prov) e.push("Manca Prov. Nascita");
+            if (nascitaEstero(o)) {
+                if (!cod9(statoNascita(o))) e.push("Codice Stato Nascita non valido");
+            } else {
+                if (!o.luogo_nascita || !o.luogo_nascita.codice_alloggiati) e.push("Manca Codice ISTAT Nascita");
+                else if (!cod9(o.luogo_nascita.codice_alloggiati)) e.push("Cod. ISTAT Nascita non a 9 cifre");
+                if (!o.luogo_nascita || !o.luogo_nascita.prov) e.push("Manca Prov. Nascita");
+            }
+            if (!cod9(cittadinanza(o))) e.push("Codice Cittadinanza non valido");
             if (!o.documento || !o.documento.tipo) e.push("Manca Tipo Doc");
+            else if (!CODICI_DOC[o.documento.tipo]) e.push("Tipo Doc non codificato");
             if (!o.documento || !o.documento.numero) e.push("Manca Num Doc");
             if (!o.documento || !o.documento.codice_alloggiati_rilascio) e.push("Manca ISTAT Rilascio Doc");
+            else if (!cod9(o.documento.codice_alloggiati_rilascio)) e.push("Cod. ISTAT Rilascio non a 9 cifre");
             return e;
         }
 
-        function aggiornaTabella() {
+        // Salva selezione, date e giorni digitati, così un aggiornamento da Firebase non li cancella
+        function leggiStatoTabella() {
+            const m = {};
+            const riga = id => (m[id] = m[id] || {});
+            document.querySelectorAll('.allogg-chk').forEach(c => { riga(c.dataset.id).checked = c.checked; });
+            document.querySelectorAll('.allogg-row-data').forEach(i => { riga(i.dataset.id).data = i.value; });
+            document.querySelectorAll('.allogg-row-giorni').forEach(i => { riga(i.dataset.id).giorni = i.value; });
+            return m;
+        }
+
+        function aggiornaTabella(opts = {}) {
             const tbody = document.getElementById('tabella-alloggiati');
-            tbody.innerHTML = '';
+            const salvato = leggiStatoTabella();
             const presenti = dbOspiti.filter(o => !o.fine_servizio);
             if(presenti.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Nessun ospite presente.</td></tr>';
                 return;
             }
 
-            const mod = document.getElementById('allogg_modalita').value;
-            const dataRif = document.getElementById('allogg_data_riferimento').value || new Date().toISOString().split('T')[0];
+            const mod = modalita();
+            const dataRif = document.getElementById('allogg_data_riferimento').value || oggiLocale();
             const gDef = document.getElementById('allogg_giorni_globali').value || "30";
 
-            presenti.forEach(o => {
+            const righe = presenti.map(o => {
                 const sesso = getSessoOspite(o);
                 const errori = validaDati(o);
                 const isValido = errori.length === 0;
-                const dRiga = mod === "INGRESSO" ? (o.ingresso || dataRif) : dataRif;
+                const st = salvato[String(o.id)];
+                const dDefault = mod === "INGRESSO" ? (o.ingresso || dataRif) : dataRif;
+                const dRiga = (!opts.resetDate && st && st.data) ? st.data : dDefault;
+                const gRiga = (st && st.giorni) ? st.giorni : gDef;
+                const spuntato = isValido && (st && st.checked !== undefined ? st.checked : true);
                 const cognome = o.cognome || (o.nome ? o.nome.split(' ')[0] : '-');
                 const nome = o.nome_puro || (o.nome ? o.nome.split(' ').slice(1).join(' ') : '-');
+                const estero = nascitaEstero(o);
+                const luogoNascita = estero
+                    ? `Estero - Stato <code>${esc(statoNascita(o))}</code>`
+                    : `${o.luogo_nascita ? esc(o.luogo_nascita.comune) + ' (' + esc(o.luogo_nascita.prov) + ')' : '-'}<br><code>${esc(o.luogo_nascita?.codice_alloggiati || 'Mancante')}</code>`;
+                const cittTxt = o.cittadinanza_codice ? esc(cittadinanza(o)) : 'Italia (predefinita)';
 
-                tbody.innerHTML += `
+                return `
                     <tr style="${!isValido ? 'background:#fff1f2;' : ''}">
-                        <td style="text-align:center;"><input type="checkbox" class="allogg-chk" data-id="${o.id}" ${isValido ? 'checked' : 'disabled'}></td>
-                        <td><strong>${cognome} ${nome}</strong><br><small style="color:#64748b;">Sesso: ${sesso === "2" ? "F (2)" : "M (1)"} | CF: ${o.cf}</small></td>
-                        <td><input type="date" class="allogg-row-data" id="allogg_data_${o.id}" value="${dRiga}"></td>
-                        <td style="text-align:center;"><input type="number" class="allogg-row-giorni" id="allogg_giorni_${o.id}" min="1" max="30" value="${gDef}" style="width:60px; text-align:center;"></td>
-                        <td>${o.luogo_nascita ? o.luogo_nascita.comune + ' (' + o.luogo_nascita.prov + ')' : '-'}<br><code>${o.luogo_nascita?.codice_alloggiati || 'Mancante'}</code></td>
-                        <td><strong>${o.documento?.tipo || '-'}</strong> n. ${o.documento?.numero || '-'}<br><small>ISTAT Rilascio: ${o.documento?.codice_alloggiati_rilascio || '-'}</small></td>
-                        <td>${isValido ? '<span style="color:#16a34a; font-weight:bold;">✅ Completo</span>' : `<span style="color:#dc2626; font-size:11px; font-weight:bold;">⛔ ${errori.join(', ')}</span>`}</td>
-                    </tr>
-                `;
+                        <td style="text-align:center;"><input type="checkbox" class="allogg-chk" data-id="${esc(o.id)}" ${spuntato ? 'checked' : ''} ${isValido ? '' : 'disabled'}></td>
+                        <td><strong>${esc(cognome)} ${esc(nome)}</strong><br><small style="color:#64748b;">Sesso: ${sesso === "2" ? "F (2)" : sesso === "1" ? "M (1)" : "mancante"} | CF: ${esc(o.cf || 'mancante')}</small></td>
+                        <td><input type="date" class="allogg-row-data" data-id="${esc(o.id)}" id="allogg_data_${esc(o.id)}" value="${esc(dRiga)}"></td>
+                        <td style="text-align:center;"><input type="number" class="allogg-row-giorni" data-id="${esc(o.id)}" id="allogg_giorni_${esc(o.id)}" min="1" max="30" value="${esc(gRiga)}" style="width:60px; text-align:center;"></td>
+                        <td>${luogoNascita}<br><small>Cittadinanza: ${cittTxt}</small></td>
+                        <td><strong>${esc(o.documento?.tipo || '-')}</strong> n. ${esc(o.documento?.numero || '-')}<br><small>ISTAT Rilascio: ${esc(o.documento?.codice_alloggiati_rilascio || '-')}</small></td>
+                        <td>${isValido ? '<span style="color:#16a34a; font-weight:bold;">✅ Completo</span>' : `<span style="color:#dc2626; font-size:11px; font-weight:bold;">⛔ ${esc(errori.join(', '))}</span>`}</td>
+                    </tr>`;
             });
+            tbody.innerHTML = righe.join('');
         }
 
         function esportaAlloggiati() {
@@ -201,44 +262,49 @@
             document.querySelectorAll('.allogg-chk:checked').forEach(c => selezionati.push(c.dataset.id));
             if(selezionati.length === 0) return alert("Seleziona almeno un ospite valido!");
 
-            const righe = [];
-            const codiciDoc = { "Carta d'Identità": "IDENT", "CIE": "IDENT", "Passaporto": "PASSP", "Patente": "PATEN" };
-            const padR = (str, len) => (str || '').toString().toUpperCase().substring(0, len).padEnd(len, ' ');
-            const padL = (str, len) => (str || '').toString().padStart(len, '0').substring(0, len);
-            const convD = iso => { if(!iso) return "          "; const p = iso.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; };
+            // Il tracciato è a byte fissi: si scrive solo ASCII (le lettere accentate perdono l'accento)
+            const ascii = str => String(str ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E]/g, ' ');
+            const padR = (str, len) => ascii(str).toUpperCase().substring(0, len).padEnd(len, ' ');
+            const padL = (str, len) => String(str ?? '').padStart(len, '0').substring(0, len);
+            const convD = iso => { const p = String(iso || '').split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : ''; };
 
+            const righe = [];
             for(let id of selezionati) {
                 const o = dbOspiti.find(x => String(x.id) === String(id));
                 if(!o) continue;
 
-                const dArrivo = document.getElementById(`allogg_data_${o.id}`).value;
-                const gg = Math.min(30, Math.max(1, parseInt(document.getElementById(`allogg_giorni_${o.id}`).value) || 30));
-                let cognome = o.cognome || (o.nome ? o.nome.split(' ')[0] : '');
-                let nome = o.nome_puro || (o.nome ? o.nome.split(' ').slice(1).join(' ') : '');
+                const cognome = o.cognome || (o.nome ? o.nome.split(' ')[0] : '');
+                const nome = o.nome_puro || (o.nome ? o.nome.split(' ').slice(1).join(' ') : '');
+
+                const dArrivo = document.getElementById(`allogg_data_${o.id}`)?.value;
+                if(!/^\d{4}-\d{2}-\d{2}$/.test(dArrivo || '')) return alert(`Data di arrivo mancante o non valida per ${cognome} ${nome}.`);
+                const gg = Math.min(30, Math.max(1, parseInt(document.getElementById(`allogg_giorni_${o.id}`)?.value) || 30));
                 const sesso = getSessoOspite(o) || "1";
+                const estero = nascitaEstero(o);
 
                 let riga = "";
-                riga += "16";
+                riga += "16";                                              // Ospite singolo
                 riga += convD(dArrivo);
                 riga += padL(gg, 2);
                 riga += padR(cognome, 50);
                 riga += padR(nome, 30);
                 riga += sesso;
                 riga += convD(o.dob);
-                riga += padR(o.luogo_nascita.codice_alloggiati, 9);
-                riga += padR(o.luogo_nascita.prov, 2);
-                riga += "100000100";
-                riga += "100000100";
-                riga += padR(codiciDoc[o.documento.tipo] || "IDENT", 5);
+                riga += padR(estero ? '' : o.luogo_nascita.codice_alloggiati, 9);   // comune: vuoto se nato all'estero
+                riga += padR(estero ? '' : o.luogo_nascita.prov, 2);                 // provincia: vuota se nato all'estero
+                riga += padR(statoNascita(o), 9);
+                riga += padR(cittadinanza(o), 9);
+                riga += padR(CODICI_DOC[o.documento.tipo], 5);
                 riga += padR(o.documento.numero, 20);
                 riga += padR(o.documento.codice_alloggiati_rilascio, 9);
 
-                if(riga.length !== 168) return alert(`Errore lunghezza tracciato per ${cognome} ${nome} (${riga.length} car.).`);
+                if(riga.length !== 168) return alert(`Errore lunghezza tracciato per ${cognome} ${nome} (${riga.length} car.). Controlla le date e i campi dell'ospite.`);
                 righe.push(riga);
             }
+            if(righe.length === 0) return;
 
-            const blob = new Blob([righe.join("\r\n") + "\r\n"], { type: "text/plain;charset=windows-1252" });
-            const nomeF = `Alloggiati_${new Date().toISOString().split('T')[0].replace(/-/g, '')}.txt`;
+            const blob = new Blob([righe.join("\r\n") + "\r\n"], { type: "text/plain;charset=us-ascii" });
+            const nomeF = `Alloggiati_${oggiLocale().replace(/-/g, '')}.txt`;
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
             a.download = nomeF;
