@@ -129,6 +129,10 @@
     </div>
 
     <script>
+        function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function oggiLocale(d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    </script>
+    <script>
         const firebaseConfig = {
             apiKey: "AIzaSyD2a7aK5Ze4mFF7ku4eFiz4or1pImHXoiA",
             authDomain: "residenza-ponte-d-oro.firebaseapp.com",
@@ -157,7 +161,7 @@
         /* --- VERIFICA SESSIONE TRAMITE LOCALSTORAGE --- */
         function verificaSessione() {
             try {
-                const salvato = localStorage.getItem('ponte_doro_logged_op') || sessionStorage.getItem('ponte_doro_desktop_op');
+                const salvato = sessionStorage.getItem('ponte_doro_desktop_op');
                 if (salvato) {
                     operatoreCorrente = JSON.parse(salvato);
                     document.getElementById('topbar-operatore-nome').innerText = `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}`;
@@ -173,14 +177,18 @@
             } catch(e) {}
         }
 
-        firebase.auth().signInAnonymously().then(() => {
+        // Accesso riservato al personale: senza il login della struttura si torna al reparto
+        firebase.auth().onAuthStateChanged(u => {
+            if (!u || u.isAnonymous) { window.location.replace('index.html'); return; }
+            if (window.__archivioAvviato) return;
+            window.__archivioAvviato = true;
             verificaSessione();
             fbDb.ref('gestionale_db').on('value', snap => {
                 const data = snap.val() || {};
                 const tuttiOspiti = forceArray(data.ospiti);
                 
                 // Filtriamo SOLO chi è fine servizio
-                ospitiArchiviati = tuttiOspiti.filter(o => o.fine_servizio === true).sort((a,b) => (b.data_dimissione || "").localeCompare(a.data_dimissione || ""));
+                ospitiArchiviati = tuttiOspiti.filter(o => o && o.fine_servizio).sort((a,b) => (b.data_dimissione || "").localeCompare(a.data_dimissione || ""));
                 
                 allTerapie = forceArray(data.terapie);
                 allDiario = forceArray(data.diario);
@@ -197,7 +205,7 @@
             const search = document.getElementById('ricerca').value.toLowerCase();
             container.innerHTML = '';
             
-            const filtrati = ospitiArchiviati.filter(o => o.nome.toLowerCase().includes(search) || (o.cf && o.cf.toLowerCase().includes(search)));
+            const filtrati = ospitiArchiviati.filter(o => (o.nome || '').toLowerCase().includes(search) || (o.cf && o.cf.toLowerCase().includes(search)));
             
             if(filtrati.length === 0) {
                 container.innerHTML = '<p style="color:#64748b; font-size:14px; text-align:center;">Nessun fascicolo archiviato trovato.</p>';
@@ -212,8 +220,8 @@
                 const activeClass = (ospiteSelezionato && String(ospiteSelezionato.id) === String(o.id)) ? 'active' : '';
                 
                 container.innerHTML += `
-                    <div class="ospite-row ${activeClass}" onclick="mostraDettaglio(${o.id})">
-                        <div style="font-weight:bold;">${o.nome}</div>
+                    <div class="ospite-row ${activeClass}" data-id="${esc(o.id)}" onclick="mostraDettaglio(this.dataset.id)">
+                        <div style="font-weight:bold;">${esc(o.nome)}</div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
                             <small style="color:#64748b;">Uscita: ${formattaData(o.data_dimissione)}</small>
                             <span class="badge ${bClass}">${bText}</span>
@@ -232,7 +240,7 @@
             renderLista(); // Aggiorna classe active
 
             document.getElementById('dettaglio-ospite').style.display = 'block';
-            document.getElementById('det-nome').innerText = ospiteSelezionato.nome;
+            document.getElementById('det-nome').innerText = ospiteSelezionato.nome || '';
             document.getElementById('det-ingresso').innerText = formattaData(ospiteSelezionato.ingresso || ospiteSelezionato.data_ingresso);
             document.getElementById('det-uscita').innerText = formattaData(ospiteSelezionato.data_dimissione);
             document.getElementById('det-motivo').innerText = ospiteSelezionato.motivo_dimissione || 'Non specificato';
@@ -264,17 +272,17 @@
             const terOsp = allTerapie.filter(t => String(t.ospite_id) === String(id));
             let htmlTer = '<tr><th>Farmaco Prescritto</th><th>Posologia</th><th>Orari di Somministrazione</th></tr>';
             if(terOsp.length === 0) htmlTer += '<tr><td colspan="3" style="text-align:center; color:#64748b;">Nessuna terapia registrata prima della dimissione.</td></tr>';
-            terOsp.forEach(t => { htmlTer += `<tr><td><strong>${t.farmaco}</strong></td><td>${t.posologia}</td><td>${(t.orari||[]).join(', ')}</td></tr>`; });
+            terOsp.forEach(t => { htmlTer += `<tr><td><strong>${esc(t.farmaco)}</strong></td><td>${esc(t.posologia)}</td><td>${esc((Array.isArray(t.orari) ? t.orari : []).join(', '))}</td></tr>`; });
             document.getElementById('tab-terapia').innerHTML = htmlTer;
 
             // Eventi (Mix Diario e Infortuni)
-            const dOsp = allDiario.filter(d => String(d.ospite_id) === String(id)).map(d => ({ data: d.data, testo: `[Diario] ${d.testo}` }));
-            const iOsp = allInfortuni.filter(i => String(i.ospite_id) === String(id)).map(i => ({ data: i.data, testo: `[Allerta Caduta] Luogo: ${i.luogo} - Dinamica: ${i.dinamica}` }));
-            const mix = [...dOsp, ...iOsp].sort((a,b) => b.data.localeCompare(a.data)).slice(0, 8); // ultimi 8
+            const dOsp = allDiario.filter(d => String(d.ospite_id) === String(id)).map(d => ({ data: d.data, testo: `[Diario] ${d.testo || ''}` }));
+            const iOsp = allInfortuni.filter(i => String(i.ospite_id) === String(id)).map(i => ({ data: i.data, testo: `[Allerta Caduta] Luogo: ${i.luogo || '-'} - Dinamica: ${i.dinamica || '-'}` }));
+            const mix = [...dOsp, ...iOsp].sort((a,b) => (b.data || '').localeCompare(a.data || '')).slice(0, 8); // ultimi 8
 
             let htmlEv = '<tr><th style="width:120px;">Data</th><th>Evento / Annotazione</th></tr>';
             if(mix.length === 0) htmlEv += '<tr><td colspan="2" style="text-align:center; color:#64748b;">Nessun evento rilevante.</td></tr>';
-            mix.forEach(m => { htmlEv += `<tr><td>${formattaData(m.data)}</td><td style="white-space:pre-line;">${m.testo}</td></tr>`; });
+            mix.forEach(m => { htmlEv += `<tr><td>${formattaData(m.data)}</td><td style="white-space:pre-line;">${esc(m.testo)}</td></tr>`; });
             document.getElementById('tab-eventi').innerHTML = htmlEv;
         }
 
@@ -293,9 +301,10 @@
                 return;
             }
 
-            const oggi = new Date().toISOString().split('T')[0];
+            const oggi = oggiLocale();
             const dataIngresso = prompt("Inserisci la NUOVA DATA di ingresso in struttura (YYYY-MM-DD):", oggi);
             if (!dataIngresso) return alert("Operazione annullata.");
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dataIngresso.trim())) return alert("Data non valida: usa il formato AAAA-MM-GG, per esempio 2026-10-24.");
 
             const dbRef = fbDb.ref(`gestionale_db/ospiti/${idOspite}`);
             
@@ -303,7 +312,7 @@
                 fine_servizio: null,
                 data_dimissione: null,
                 motivo_dimissione: null,
-                ingresso: dataIngresso
+                ingresso: dataIngresso.trim()
             }).then(() => {
                 const opName = operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}`.trim() : "Amministrazione";
                 const logEntry = {
@@ -330,7 +339,7 @@
         function apriAttestazioneDecesso() {
             if(!ospiteSelezionato) return;
             document.getElementById('dec-nome-ospite').innerText = ospiteSelezionato.nome;
-            document.getElementById('dec-data').value = ospiteSelezionato.data_dimissione || new Date().toISOString().split('T')[0];
+            document.getElementById('dec-data').value = ospiteSelezionato.data_dimissione || oggiLocale();
             document.getElementById('dec-ora').value = "";
             document.getElementById('dec-luogo').value = "";
             document.getElementById('modal-attestazione-decesso').style.display = 'flex';
@@ -367,14 +376,14 @@
                     <p style="font-size: 12pt;">La Direzione della Residenza Servita "Ponte D'Oro" attesta ufficialmente che l'ospite:</p>
                     
                     <div style="background: #f8fafc; padding: 20px; border: 1px solid #000; margin-bottom: 25px; font-size: 12pt;">
-                        <p style="margin: 5px 0;"><strong>Nome e Cognome:</strong> ${ospiteSelezionato.nome}</p>
-                        <p style="margin: 5px 0;"><strong>Codice Fiscale:</strong> ${ospiteSelezionato.cf || '-'}</p>
-                        <p style="margin: 5px 0;"><strong>Data di Nascita:</strong> ${dataNascita} a ${comuneNascita} (${provNascita})</p>
-                        <p style="margin: 5px 0;"><strong>Residenza Fiscale:</strong> ${indirizzoRes}, ${comuneRes}</p>
+                        <p style="margin: 5px 0;"><strong>Nome e Cognome:</strong> ${esc(ospiteSelezionato.nome)}</p>
+                        <p style="margin: 5px 0;"><strong>Codice Fiscale:</strong> ${esc(ospiteSelezionato.cf || '-')}</p>
+                        <p style="margin: 5px 0;"><strong>Data di Nascita:</strong> ${esc(dataNascita)} a ${esc(comuneNascita)} (${esc(provNascita)})</p>
+                        <p style="margin: 5px 0;"><strong>Residenza Fiscale:</strong> ${esc(indirizzoRes)}, ${esc(comuneRes)}</p>
                     </div>
 
-                    <p style="font-size: 12pt;">È deceduto/a in data <strong>${formattaData(dataDecesso)}</strong> alle ore <strong>${oraDecesso}</strong>.</p>
-                    <p style="font-size: 12pt;"><strong>Luogo del decesso:</strong> ${luogoDecesso}</p>
+                    <p style="font-size: 12pt;">È deceduto/a in data <strong>${formattaData(dataDecesso)}</strong> alle ore <strong>${esc(oraDecesso)}</strong>.</p>
+                    <p style="font-size: 12pt;"><strong>Luogo del decesso:</strong> ${esc(luogoDecesso)}</p>
                     <p style="font-size: 12pt;"><strong>Data ingresso in struttura:</strong> ${formattaData(ospiteSelezionato.ingresso)}</p>
 
                     <p style="margin-top: 40px; font-size: 11pt; text-align: justify;">
