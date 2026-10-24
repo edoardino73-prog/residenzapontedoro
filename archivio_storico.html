@@ -74,6 +74,7 @@
                 <span>👤 Utente: <strong id="topbar-operatore-nome">Non identificato</strong></span>
                 <span class="badge-ruolo" id="topbar-operatore-ruolo">Ruolo: -</span>
             </div>
+            <button class="btn btn-teal" style="padding: 8px 14px; font-size: 12.5px;" onclick="apriLoginOperatore()">Cambia operatore</button>
             <a href="index.html" class="btn btn-dark" style="padding: 8px 14px; font-size: 12.5px;">← Torna al Gestionale</a>
         </div>
     </div>
@@ -89,6 +90,21 @@
             <div style="display:flex; gap:10px; margin-top:20px;">
                 <button class="btn btn-dark" onclick="chiudiModalDecesso()" style="flex:1;">Annulla</button>
                 <button class="btn btn-decesso" onclick="stampaAttestazioneDecesso()" style="flex:2;">🖨️ Genera Attestazione</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCELTA OPERATORE -->
+    <div id="modal-op" class="modal-overlay no-print">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">&#128100; Chi sta usando l'archivio?</h3>
+            <p style="font-size:13px; color:#64748b; margin-top:0;">L'accesso della struttura è attivo. Scegli il tuo nome e inserisci il PIN personale: servono per i permessi e per il registro degli accessi.</p>
+            <div class="form-group"><label>Operatore</label><select id="op_sel" style="padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px;"></select></div>
+            <div class="form-group"><label>PIN</label><input type="password" id="op_pin" inputmode="numeric" maxlength="8" autocomplete="off" onkeydown="if(event.key==='Enter') confermaOperatore()"></div>
+            <div id="op_err" style="color:#b91c1c; font-weight:bold; font-size:13px; min-height:18px; margin-bottom:10px;"></div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-dark" style="flex:1;" onclick="chiudiLoginOperatore()">Solo consultazione</button>
+                <button class="btn btn-teal" style="flex:2;" onclick="confermaOperatore()">Entra</button>
             </div>
         </div>
     </div>
@@ -146,6 +162,7 @@
         let allTerapie = [];
         let allDiario = [];
         let allInfortuni = [];
+        let allBina = [], allPai = [], allParametri = [], allUscite = [];
         let ospiteSelezionato = null;
         let operatoreCorrente = null;
         let isAdminOrMed = false;
@@ -170,8 +187,8 @@
                     const r = (operatoreCorrente.incarico || "").toLowerCase();
                     isAdminOrMed = r.includes("amministrazione") || r.includes("direzione") || r.includes("titolare") || r.includes("medico") || r.includes("coordinatore");
                 } else {
-                    document.getElementById('topbar-operatore-nome').innerText = "Accesso Anonimo";
-                    document.getElementById('topbar-operatore-ruolo').innerText = "Ruolo: Ospite non loggato";
+                    document.getElementById('topbar-operatore-nome').innerText = "Nessun operatore selezionato";
+                    document.getElementById('topbar-operatore-ruolo').innerText = "Ruolo: sola consultazione";
                     isAdminOrMed = false;
                 }
             } catch(e) {}
@@ -183,6 +200,7 @@
             if (window.__archivioAvviato) return;
             window.__archivioAvviato = true;
             verificaSessione();
+            if (!operatoreCorrente) apriLoginOperatore();
             fbDb.ref('gestionale_db').on('value', snap => {
                 const data = snap.val() || {};
                 const tuttiOspiti = forceArray(data.ospiti);
@@ -193,11 +211,21 @@
                 allTerapie = forceArray(data.terapie);
                 allDiario = forceArray(data.diario);
                 allInfortuni = forceArray(data.infortuni);
+                allBina = forceArray(data.bina);
+                allPai = forceArray(data.pai);
+                allParametri = forceArray(data.parametri);
+                allUscite = forceArray(data.uscite);
 
                 renderLista();
                 // Se c'è un ospite selezionato ricarica il dettaglio
                 if(ospiteSelezionato) mostraDettaglio(ospiteSelezionato.id);
+            }, err => {
+                document.getElementById('lista-storica').innerHTML = '<p style="color:#b91c1c; font-weight:bold;">Impossibile leggere l\'archivio: ' + esc(err.message) + '. Verifica di aver fatto l\'accesso della struttura e le regole del database.</p>';
             });
+            setTimeout(() => {
+                const l = document.getElementById('lista-storica');
+                if (l && l.innerText.indexOf('Caricamento') === 0) l.innerHTML = '<p style="color:#b91c1c; font-weight:bold;">Il database non risponde. Controlla la connessione e ricarica la pagina.</p>';
+            }, 12000);
         });
 
         function renderLista() {
@@ -253,6 +281,7 @@
             let buttonsHtml = '';
 
             if (isAdminOrMed) {
+                buttonsHtml += `<button class="btn btn-teal" onclick="stampaFascicolo()" style="flex:1;">🖨️ Stampa Fascicolo Completo</button>`;
                 if (isDec) {
                     // Solo Attestazione Decesso, NESSUNA riammissione
                     buttonsHtml += `<button class="btn btn-decesso" onclick="apriAttestazioneDecesso()" style="flex:1;">🖤 Stampa Attestazione di Decesso</button>`;
@@ -333,6 +362,164 @@
                 ospiteSelezionato = null;
                 
             }).catch(error => alert("❌ Errore durante la riammissione: " + error.message));
+        }
+
+        /* --- SCELTA OPERATORE (PIN) --- */
+        let _tentativiOp = 0, _bloccoOp = 0;
+        function apriLoginOperatore() {
+            document.getElementById('op_err').textContent = '';
+            document.getElementById('op_pin').value = '';
+            fbDb.ref('gestionale_db/operatori').once('value').then(snap => {
+                const sel = document.getElementById('op_sel');
+                sel.innerHTML = '';
+                const v = snap.val() || {};
+                const lista = (Array.isArray(v) ? v : Object.keys(v).map(k => Object.assign({ _k: k }, v[k]))).filter(o => o && o.nome && String(o.attivo) !== 'false');
+                lista.forEach((o, i) => sel.add(new Option(((o.nome || '') + ' ' + (o.cognome || '')).trim() + ' - ' + (o.incarico || o.qualifica || 'Operatore'), String(o._k != null ? o._k : (o.id != null ? o.id : i)))));
+                window.__operatoriArchivio = {};
+                lista.forEach((o, i) => { window.__operatoriArchivio[String(o._k != null ? o._k : (o.id != null ? o.id : i))] = o; });
+                document.getElementById('modal-op').style.display = 'flex';
+            }).catch(err => alert('Non riesco a leggere gli operatori: ' + err.message));
+        }
+        function chiudiLoginOperatore() { document.getElementById('modal-op').style.display = 'none'; }
+        function confermaOperatore() {
+            const err = document.getElementById('op_err');
+            if (Date.now() < _bloccoOp) { err.textContent = 'Troppi tentativi: riprova tra ' + Math.ceil((_bloccoOp - Date.now()) / 1000) + ' secondi.'; return; }
+            const o = (window.__operatoriArchivio || {})[document.getElementById('op_sel').value];
+            const pin = document.getElementById('op_pin').value.trim();
+            if (!o) { err.textContent = 'Seleziona un operatore.'; return; }
+            if (o.data_scadenza_incarico && o.data_scadenza_incarico < oggiLocale()) { err.textContent = 'Incarico scaduto: accesso non consentito.'; return; }
+            if (!pin || String(o.pin) !== pin) {
+                _tentativiOp++;
+                if (_tentativiOp >= 5) { _bloccoOp = Date.now() + 30000; _tentativiOp = 0; }
+                document.getElementById('op_pin').value = '';
+                err.textContent = 'PIN errato.';
+                return;
+            }
+            _tentativiOp = 0;
+            try {
+                sessionStorage.setItem('ponte_doro_desktop_op', JSON.stringify({
+                    id: o.id != null ? o.id : null, nome: o.nome, cognome: o.cognome || '',
+                    incarico: o.incarico || o.qualifica || 'Operatore', qualifica: o.qualifica || '', inquadramento: o.inquadramento || ''
+                }));
+            } catch (e) {}
+            chiudiLoginOperatore();
+            verificaSessione();
+            renderLista();
+            if (ospiteSelezionato) mostraDettaglio(ospiteSelezionato.id);
+        }
+
+        /* --- STAMPA FASCICOLO COMPLETO (cartella archiviata) --- */
+        function stampaFascicolo() {
+            if (!ospiteSelezionato) return;
+            const o = ospiteSelezionato;
+            const id = String(o.id);
+            const dataIt = v => {
+                if (!v) return '-';
+                const p = String(v).slice(0, 10).split('-');
+                return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(v);
+            };
+            const doOra = (d, h) => [d ? dataIt(d) : '', h || ''].join(' ').trim() || '-';
+            const th = a => '<tr>' + a.map(h => '<th>' + esc(h) + '</th>').join('') + '</tr>';
+            const td = a => '<tr>' + a.map(c => '<td>' + esc(c == null || c === '' ? '-' : c) + '</td>').join('') + '</tr>';
+            const tab = (head, rows, vuoto) => rows.length
+                ? '<table class="fx">' + th(head) + rows.map(td).join('') + '</table>'
+                : '<p class="fx-v">' + esc(vuoto || 'Nessun dato registrato.') + '</p>';
+            const kv = righe => '<table class="fx">' + righe.map(r => '<tr><td class="fx-k">' + esc(r[0]) + '</td><td>' + esc(r[1] == null || r[1] === '' ? '-' : r[1]) + '</td></tr>').join('') + '</table>';
+            const sez = (titolo, corpo) => '<h2 class="fx-h">' + esc(titolo) + '</h2>' + corpo;
+            const dellOspite = arr => arr.filter(x => x && String(x.ospite_id) === id);
+            const perData = (arr, chiave) => arr.slice().sort((a, b) => ((b[chiave] || '') + (b.ora || '')).localeCompare((a[chiave] || '') + (a.ora || '')));
+
+            const isDec = o.motivo_dimissione && o.motivo_dimissione.toLowerCase().includes('decesso');
+            const sesso = o.sesso === '2' ? 'F' : (o.sesso === '1' ? 'M' : '-');
+            const nas = o.luogo_nascita || {}, res = o.residenza || {}, docu = o.documento || {};
+            const fam = o.familiare || {}, ads = o.ads || {}, mmg = o.mmg || {};
+            const firme = f => f ? [f.inf, f.oss, f.med].filter(Boolean).join(' • ') || '-' : '-';
+
+            let h = '';
+            h += '<div class="fx-doc">';
+            h += '<div style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:16px;">'
+               + '<div style="font-size:16pt; font-weight:bold; text-transform:uppercase;">Residenza Servita &quot;Ponte D\'Oro&quot;</div>'
+               + '<div style="font-size:10pt;">Via Sardegna 10, 05100 Terni (TR)</div></div>';
+            h += '<div style="text-align:center; font-size:15pt; font-weight:bold; margin-bottom:4px;">FASCICOLO PERSONALE DELL\'OSPITE</div>';
+            h += '<div style="text-align:center; font-size:11pt; margin-bottom:10px;">' + esc(o.nome || '-') + ' &mdash; ' + (isDec ? 'Cartella chiusa per decesso' : 'Cartella archiviata') + '</div>';
+
+            h += sez('1. Dati anagrafici e permanenza', kv([
+                ['Cognome e nome', o.nome], ['Codice fiscale', o.cf], ['Sesso', sesso],
+                ['Data e luogo di nascita', dataIt(o.dob) + (nas.comune ? ' a ' + nas.comune + (nas.prov ? ' (' + nas.prov + ')' : '') : '')],
+                ['Residenza', [res.indirizzo, res.comune ? res.comune + (res.prov ? ' (' + res.prov + ')' : '') : ''].filter(Boolean).join(', ')],
+                ['Documento', [docu.tipo, docu.numero].filter(Boolean).join(' n. ')],
+                ['Data di ingresso', dataIt(o.ingresso || o.data_ingresso)],
+                ['Data di uscita', dataIt(o.data_dimissione)],
+                ['Causale di uscita', o.motivo_dimissione || 'Non specificata']
+            ]));
+
+            h += sez('2. Referenti', kv([
+                ['Familiare di riferimento', [fam.nome, fam.parentela ? '(' + fam.parentela + ')' : '', fam.telefono, fam.email].filter(Boolean).join(' ')],
+                ['Amministratore di sostegno', [ads.nome, ads.tel].filter(Boolean).join(' ')],
+                ['Medico di medicina generale', [mmg.nome, mmg.tel].filter(Boolean).join(' ')]
+            ]));
+
+            h += sez('3. Valutazioni B.I.N.A.', tab(['Data', 'Tipo', 'Punteggio', 'Esito', 'Stato', 'Firme'],
+                perData(dellOspite(allBina), 'data').map(b => [dataIt(b.data), b.tipo_cert, b.punteggio, b.esito, b.stato, firme(b.firme)]), 'Nessuna scheda B.I.N.A. registrata.'));
+
+            const pai = perData(dellOspite(allPai), 'data');
+            h += sez('4. Piani di assistenza individuale (P.A.I.)', pai.length ? pai.map(p =>
+                '<div class="fx-pai"><strong>Piano del ' + esc(dataIt(p.data)) + '</strong> &mdash; ' + esc(p.stato || '-')
+                + '<br><strong>Obiettivi:</strong> <span class="fx-pre">' + esc(p.obiettivi || '-') + '</span>'
+                + '<br><strong>Interventi:</strong> <span class="fx-pre">' + esc(p.interventi || '-') + '</span>'
+                + '<br><strong>Area sociale:</strong> <span class="fx-pre">' + esc(p.sociale || '-') + '</span>'
+                + '<br><small>Firme: ' + esc(firme(p.firme)) + '</small></div>').join('') : '<p class="fx-v">Nessun P.A.I. registrato.</p>');
+
+            h += sez('5. Terapia farmacologica', tab(['Farmaco', 'Posologia', 'Orari'],
+                dellOspite(allTerapie).map(t => [t.farmaco, t.posologia, (Array.isArray(t.orari) ? t.orari : []).join(', ')]), 'Nessuna terapia registrata.'));
+
+            h += sez('6. Parametri vitali', tab(['Data e ora', 'PA', 'FC', 'SpO2', 'Temp.', 'HGT', 'Operatore'],
+                perData(dellOspite(allParametri), 'data').map(p => [doOra(p.data, p.ora), p.pa, p.fc, p.spo2, p.tc, p.hgt, p.firma]), 'Nessun parametro registrato.'));
+
+            h += sez('7. Eventi avversi e cadute', tab(['Data e ora', 'Luogo', 'Dinamica', 'Lesioni', 'Intervento', 'Notifica'],
+                perData(dellOspite(allInfortuni), 'data').map(i => [doOra(i.data, i.ora), i.luogo, i.dinamica, i.lesioni, i.intervento, i.notifica]), 'Nessun evento registrato.'));
+
+            h += sez('8. Diario', tab(['Data', 'Annotazione', 'Operatore'],
+                perData(dellOspite(allDiario), 'data').map(d => [dataIt(d.data), d.testo, d.operatore || d.autore || d.firma]), 'Nessuna annotazione.'));
+
+            h += sez('9. Uscite temporanee', tab(['Uscita', 'Rientro', 'Note'],
+                perData(dellOspite(allUscite), 'data_out').map(u => [doOra(u.data_out, u.ora_out), doOra(u.data_in || (u.rientro && u.rientro.data), u.ora_in || (u.rientro && u.rientro.ora)), u.note]), 'Nessuna uscita registrata.'));
+
+            const opName = operatoreCorrente ? ((operatoreCorrente.nome || '') + ' ' + (operatoreCorrente.cognome || '')).trim() : 'Amministrazione';
+            h += '<p style="font-size:9pt; margin-top:22px; text-align:justify;">Documento generato dal registro digitale della struttura il '
+               + esc(new Date().toLocaleDateString('it-IT')) + ' da ' + esc(opName)
+               + '. Contiene dati personali e sanitari (art. 9 Reg. UE 2016/679): conservare e comunicare solo ai soggetti autorizzati.</p>';
+            h += '<div style="display:flex; justify-content:space-between; margin-top:50px; text-align:center; font-size:11pt; page-break-inside:avoid;">'
+               + '<div style="width:40%; border-top:1px solid #000; padding-top:8px;">Luogo e data</div>'
+               + '<div style="width:40%; border-top:1px solid #000; padding-top:8px;">La Direzione (timbro e firma)</div></div>';
+            h += '</div>';
+
+            const css = '<style>'
+                + '.fx{width:100%;border-collapse:collapse;font-size:9.5pt;margin:6px 0 14px}'
+                + '.fx th,.fx td{border:1px solid #444;padding:4px 6px;text-align:left;vertical-align:top}'
+                + '.fx th{background:#eee}.fx-k{width:32%;font-weight:bold;background:#f5f5f5}'
+                + '.fx-v{font-style:italic;font-size:10pt;margin:4px 0 12px}'
+                + '.fx-h{font-size:12pt;margin:16px 0 4px;border-bottom:1px solid #000;page-break-after:avoid}'
+                + '.fx-pre{white-space:pre-line}.fx-pai{border:1px solid #444;padding:8px;margin:6px 0;font-size:10pt;page-break-inside:avoid}'
+                + '.fx tr{page-break-inside:avoid}.fx-doc{font-family:"Times New Roman",serif;color:#000;line-height:1.35;max-width:800px;margin:0 auto}'
+                + '</style>';
+
+            if (!confirm('Stampare il fascicolo completo di ' + (o.nome || 'questo ospite') + '?\nL\'operazione viene registrata nel registro degli accessi.')) return;
+
+            const logId = Date.now();
+            fbDb.ref('gestionale_db/audit_logs/' + logId).set({
+                id: logId, timestamp: new Date().toISOString(),
+                operatore_id: operatoreCorrente ? operatoreCorrente.id : 'AMMINISTRAZIONE', operatore_nome: opName,
+                ospite_id: o.id, ospite_nome: o.nome || '-', tipo_operazione: 'STAMPA', modulo: 'ARCHIVIO / FASCICOLO',
+                dettaglio: 'Stampa del fascicolo completo dalla cartella archiviata.'
+            });
+
+            document.getElementById('stampa-overlay').innerHTML = css + h;
+            document.body.classList.add('stampa-pdf-attiva');
+            setTimeout(() => {
+                window.print();
+                document.body.classList.remove('stampa-pdf-attiva');
+            }, 300);
         }
 
         /* --- LOGICA ATTESTAZIONE DECESSO --- */
