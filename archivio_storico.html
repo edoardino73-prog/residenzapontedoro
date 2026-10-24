@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archivio Storico Ospiti - Ponte D'Oro</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; margin: 0; color: #1e293b; }
+        
+        /* TOPBAR */
+        .topbar { background: #1e293b; color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .topbar h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+        .topbar-user { font-size: 13px; color: #cbd5e1; display: flex; align-items: center; gap: 10px; }
+        .badge-ruolo { background: #0f766e; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+
+        .container { max-width: 1200px; margin: 25px auto; padding: 0 15px; display: flex; gap: 25px; align-items: flex-start; }
+        
+        /* BOX E LISTE */
+        .list-box { flex: 1; background: white; padding: 20px; border-radius: 8px; border-top: 5px solid #64748b; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .detail-box { flex: 2; background: white; padding: 20px; border-radius: 8px; border-top: 5px solid #0f766e; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: none; }
+        
+        h3 { margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; color: #0f172a; }
+        .ospite-row { padding: 12px; border-bottom: 1px solid #e2e8f0; cursor: pointer; border-radius: 6px; transition: 0.2s; }
+        .ospite-row:hover { background: #f1f5f9; border-left: 4px solid #0f766e; }
+        .ospite-row.active { background: #e0f2fe; border-left: 4px solid #0284c7; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-dec { background: #1e293b; color: #f8fafc; border: 1px solid #0f172a; }
+        .badge-dim { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        
+        /* PULSANTI */
+        .btn { padding: 10px 15px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13.5px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; color:white; transition: 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-teal { background: #0f766e; }
+        .btn-dark { background: #334155; }
+        .btn-primary { background: #0284c7; }
+        .btn-success { background: #16a34a; }
+        .btn-warning { background: #f59e0b; }
+        .btn-decesso { background: #1e293b; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+        th { background-color: #f8fafc; }
+
+        /* MODALI E STAMPA */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 92%; max-width: 450px; border-top: 6px solid #1e293b; }
+        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .form-group label { font-size: 13px; font-weight: bold; color: #334155; margin-bottom: 5px; }
+        .form-group input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-family: inherit; }
+
+        #stampa-overlay { display: none; }
+        @media print {
+            .no-print, .topbar, .container { display: none !important; }
+            body, html { height: auto !important; overflow: visible !important; background-color: white !important; }
+            body.stampa-pdf-attiva #stampa-overlay { display: block !important; position: static !important; padding: 10mm; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- OVERLAY PER LA STAMPA ATTESTAZIONE -->
+    <div id="stampa-overlay"></div>
+
+    <div class="topbar no-print">
+        <h2>🗄️ Archivio Storico (Dimessi e Deceduti)</h2>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <div class="topbar-user">
+                <span>👤 Utente: <strong id="topbar-operatore-nome">Non identificato</strong></span>
+                <span class="badge-ruolo" id="topbar-operatore-ruolo">Ruolo: -</span>
+            </div>
+            <a href="index.html" class="btn btn-dark" style="padding: 8px 14px; font-size: 12.5px;">← Torna al Gestionale</a>
+        </div>
+    </div>
+
+    <!-- MODALE ATTESTAZIONE DECESSO -->
+    <div id="modal-attestazione-decesso" class="modal-overlay no-print">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:#1e293b;">🖤 Attestazione di Decesso</h3>
+            <p style="font-size:13px; color:#64748b; margin-bottom:20px;">Compila i dati finali per stampare l'attestazione ufficiale di decesso per <strong id="dec-nome-ospite"></strong>.</p>
+            <div class="form-group"><label>Data del Decesso *</label><input type="date" id="dec-data" readonly style="background:#f1f5f9;"></div>
+            <div class="form-group"><label>Ora del Decesso *</label><input type="time" id="dec-ora"></div>
+            <div class="form-group"><label>Luogo Esatto del Decesso *</label><input type="text" id="dec-luogo" placeholder="Es. In Struttura, Ospedale Santa Maria Terni..."></div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-dark" onclick="chiudiModalDecesso()" style="flex:1;">Annulla</button>
+                <button class="btn btn-decesso" onclick="stampaAttestazioneDecesso()" style="flex:2;">🖨️ Genera Attestazione</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container no-print">
+        <!-- LISTA OSPITI ARCHIVIATI -->
+        <div class="list-box">
+            <h3>🗂️ Elenco Fascicoli Archiviati</h3>
+            <input type="text" id="ricerca" placeholder="Cerca nome ospite archiviato..." style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #cbd5e1; border-radius:6px; outline:none;" onkeyup="filtraLista()">
+            <div id="lista-storica">Caricamento in corso...</div>
+        </div>
+
+        <!-- DETTAGLIO OSPITE -->
+        <div class="detail-box" id="dettaglio-ospite">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h2 id="det-nome" style="margin:0; color:#0f766e; font-size:22px;">Nome Ospite</h2>
+                <div id="det-badge"></div>
+            </div>
+            
+            <div style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:20px;">
+                <p style="margin:0 0 5px 0;"><strong>Data Ingresso:</strong> <span id="det-ingresso"></span></p>
+                <p style="margin:0 0 5px 0;"><strong>Data Uscita:</strong> <span id="det-uscita"></span></p>
+                <p style="margin:0;"><strong>Causale Uscita:</strong> <span id="det-motivo"></span></p>
+            </div>
+
+            <!-- CONTENITORE PULSANTI AZIONE (GENERATI DINAMICAMENTE DA RBAC) -->
+            <div id="action-buttons-container" style="display:flex; gap:10px; margin-bottom: 25px; flex-wrap: wrap;"></div>
+
+            <!-- ANTEPRIMA STORICO -->
+            <div style="border-top:2px solid #e2e8f0; padding-top:15px;">
+                <h3 style="font-size:16px;">💊 Storico Terapia al momento dell'uscita</h3>
+                <table id="tab-terapia"></table>
+
+                <h3 style="font-size:16px; margin-top:20px;">📖 Ultimi Eventi Registrati (Diario & Infortuni)</h3>
+                <table id="tab-eventi"></table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2a7aK5Ze4mFF7ku4eFiz4or1pImHXoiA",
+            authDomain: "residenza-ponte-d-oro.firebaseapp.com",
+            databaseURL: "https://residenza-ponte-d-oro-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "residenza-ponte-d-oro"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const fbDb = firebase.database();
+
+        let ospitiArchiviati = [];
+        let allTerapie = [];
+        let allDiario = [];
+        let allInfortuni = [];
+        let ospiteSelezionato = null;
+        let operatoreCorrente = null;
+        let isAdminOrMed = false;
+
+        function forceArray(data) {
+            return (Array.isArray(data) ? data : Object.values(data || {})).filter(i => i !== null);
+        }
+        function formattaData(iso) { 
+            if(!iso) return "-"; 
+            const p = iso.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; 
+        }
+
+        /* --- VERIFICA SESSIONE TRAMITE LOCALSTORAGE --- */
+        function verificaSessione() {
+            try {
+                const salvato = localStorage.getItem('ponte_doro_logged_op') || sessionStorage.getItem('ponte_doro_desktop_op');
+                if (salvato) {
+                    operatoreCorrente = JSON.parse(salvato);
+                    document.getElementById('topbar-operatore-nome').innerText = `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}`;
+                    document.getElementById('topbar-operatore-ruolo').innerText = `Ruolo: ${operatoreCorrente.incarico}`;
+                    
+                    const r = (operatoreCorrente.incarico || "").toLowerCase();
+                    isAdminOrMed = r.includes("amministrazione") || r.includes("direzione") || r.includes("titolare") || r.includes("medico") || r.includes("coordinatore");
+                } else {
+                    document.getElementById('topbar-operatore-nome').innerText = "Accesso Anonimo";
+                    document.getElementById('topbar-operatore-ruolo').innerText = "Ruolo: Ospite non loggato";
+                    isAdminOrMed = false;
+                }
+            } catch(e) {}
+        }
+
+        firebase.auth().signInAnonymously().then(() => {
+            verificaSessione();
+            fbDb.ref('gestionale_db').on('value', snap => {
+                const data = snap.val() || {};
+                const tuttiOspiti = forceArray(data.ospiti);
+                
+                // Filtriamo SOLO chi è fine servizio
+                ospitiArchiviati = tuttiOspiti.filter(o => o.fine_servizio === true).sort((a,b) => (b.data_dimissione || "").localeCompare(a.data_dimissione || ""));
+                
+                allTerapie = forceArray(data.terapie);
+                allDiario = forceArray(data.diario);
+                allInfortuni = forceArray(data.infortuni);
+
+                renderLista();
+                // Se c'è un ospite selezionato ricarica il dettaglio
+                if(ospiteSelezionato) mostraDettaglio(ospiteSelezionato.id);
+            });
+        });
+
+        function renderLista() {
+            const container = document.getElementById('lista-storica');
+            const search = document.getElementById('ricerca').value.toLowerCase();
+            container.innerHTML = '';
+            
+            const filtrati = ospitiArchiviati.filter(o => o.nome.toLowerCase().includes(search) || (o.cf && o.cf.toLowerCase().includes(search)));
+            
+            if(filtrati.length === 0) {
+                container.innerHTML = '<p style="color:#64748b; font-size:14px; text-align:center;">Nessun fascicolo archiviato trovato.</p>';
+                document.getElementById('dettaglio-ospite').style.display = 'none';
+                return;
+            }
+
+            filtrati.forEach(o => {
+                const isDec = o.motivo_dimissione && o.motivo_dimissione.toLowerCase().includes('decesso');
+                const bClass = isDec ? 'badge-dec' : 'badge-dim';
+                const bText = isDec ? 'Deceduto' : 'Dimesso';
+                const activeClass = (ospiteSelezionato && String(ospiteSelezionato.id) === String(o.id)) ? 'active' : '';
+                
+                container.innerHTML += `
+                    <div class="ospite-row ${activeClass}" onclick="mostraDettaglio(${o.id})">
+                        <div style="font-weight:bold;">${o.nome}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                            <small style="color:#64748b;">Uscita: ${formattaData(o.data_dimissione)}</small>
+                            <span class="badge ${bClass}">${bText}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function filtraLista() { renderLista(); }
+
+        function mostraDettaglio(id) {
+            ospiteSelezionato = ospitiArchiviati.find(o => String(o.id) === String(id));
+            if(!ospiteSelezionato) return;
+            
+            renderLista(); // Aggiorna classe active
+
+            document.getElementById('dettaglio-ospite').style.display = 'block';
+            document.getElementById('det-nome').innerText = ospiteSelezionato.nome;
+            document.getElementById('det-ingresso').innerText = formattaData(ospiteSelezionato.ingresso || ospiteSelezionato.data_ingresso);
+            document.getElementById('det-uscita').innerText = formattaData(ospiteSelezionato.data_dimissione);
+            document.getElementById('det-motivo').innerText = ospiteSelezionato.motivo_dimissione || 'Non specificato';
+
+            const isDec = ospiteSelezionato.motivo_dimissione && ospiteSelezionato.motivo_dimissione.toLowerCase().includes('decesso');
+            document.getElementById('det-badge').innerHTML = `<span class="badge ${isDec ? 'badge-dec' : 'badge-dim'}" style="font-size:13px; padding:6px 12px;">${isDec ? 'Fascicolo Decesso' : 'Fascicolo Dimissione'}</span>`;
+
+            // GENERA BOTTONI IN BASE AL RUOLO E AL MOTIVO (Decesso vs Dimissione)
+            const btnContainer = document.getElementById('action-buttons-container');
+            let buttonsHtml = '';
+
+            if (isAdminOrMed) {
+                if (isDec) {
+                    // Solo Attestazione Decesso, NESSUNA riammissione
+                    buttonsHtml += `<button class="btn btn-decesso" onclick="apriAttestazioneDecesso()" style="flex:1;">🖤 Stampa Attestazione di Decesso</button>`;
+                } else {
+                    // Lettera Uscita e Riammissione
+                    buttonsHtml += `<button class="btn btn-primary" onclick="generaLettera()" style="flex:1;">📄 Genera Lettera Uscita</button>`;
+                    buttonsHtml += `<button class="btn btn-success" onclick="riprendiInCaricoDallArchivio()" style="flex:1;">🔄 Riprendi in Carico (Riammissione)</button>`;
+                }
+            } else {
+                buttonsHtml = `<div style="width:100%; padding:10px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; font-size:13px; text-align:center;">
+                    ⚠️ Il tuo profilo non possiede i permessi per generare documenti o modificare lo stato del fascicolo. Visibilità in sola lettura.
+                </div>`;
+            }
+            btnContainer.innerHTML = buttonsHtml;
+
+            // Terapie
+            const terOsp = allTerapie.filter(t => String(t.ospite_id) === String(id));
+            let htmlTer = '<tr><th>Farmaco Prescritto</th><th>Posologia</th><th>Orari di Somministrazione</th></tr>';
+            if(terOsp.length === 0) htmlTer += '<tr><td colspan="3" style="text-align:center; color:#64748b;">Nessuna terapia registrata prima della dimissione.</td></tr>';
+            terOsp.forEach(t => { htmlTer += `<tr><td><strong>${t.farmaco}</strong></td><td>${t.posologia}</td><td>${(t.orari||[]).join(', ')}</td></tr>`; });
+            document.getElementById('tab-terapia').innerHTML = htmlTer;
+
+            // Eventi (Mix Diario e Infortuni)
+            const dOsp = allDiario.filter(d => String(d.ospite_id) === String(id)).map(d => ({ data: d.data, testo: `[Diario] ${d.testo}` }));
+            const iOsp = allInfortuni.filter(i => String(i.ospite_id) === String(id)).map(i => ({ data: i.data, testo: `[Allerta Caduta] Luogo: ${i.luogo} - Dinamica: ${i.dinamica}` }));
+            const mix = [...dOsp, ...iOsp].sort((a,b) => b.data.localeCompare(a.data)).slice(0, 8); // ultimi 8
+
+            let htmlEv = '<tr><th style="width:120px;">Data</th><th>Evento / Annotazione</th></tr>';
+            if(mix.length === 0) htmlEv += '<tr><td colspan="2" style="text-align:center; color:#64748b;">Nessun evento rilevante.</td></tr>';
+            mix.forEach(m => { htmlEv += `<tr><td>${formattaData(m.data)}</td><td style="white-space:pre-line;">${m.testo}</td></tr>`; });
+            document.getElementById('tab-eventi').innerHTML = htmlEv;
+        }
+
+        /* --- LETTERA E RIAMMISSIONE --- */
+        function generaLettera() {
+            if(!ospiteSelezionato) return;
+            window.open(`lettera_dimissioni.html?id=${ospiteSelezionato.id}`, '_blank');
+        }
+
+        function riprendiInCaricoDallArchivio() {
+            if(!ospiteSelezionato) return;
+            const idOspite = ospiteSelezionato.id;
+            const nomeOspite = ospiteSelezionato.nome;
+
+            if (!confirm(`ATTENZIONE: Stai per riammettere in struttura l'ospite ${nomeOspite}.\nL'ospite uscirà dall'archivio e riapparirà immediatamente sui tablet di reparto.\n\nVuoi procedere?`)) {
+                return;
+            }
+
+            const oggi = new Date().toISOString().split('T')[0];
+            const dataIngresso = prompt("Inserisci la NUOVA DATA di ingresso in struttura (YYYY-MM-DD):", oggi);
+            if (!dataIngresso) return alert("Operazione annullata.");
+
+            const dbRef = fbDb.ref(`gestionale_db/ospiti/${idOspite}`);
+            
+            dbRef.update({
+                fine_servizio: null,
+                data_dimissione: null,
+                motivo_dimissione: null,
+                ingresso: dataIngresso
+            }).then(() => {
+                const opName = operatoreCorrente ? `${operatoreCorrente.nome} ${operatoreCorrente.cognome || ''}`.trim() : "Amministrazione";
+                const logEntry = {
+                    id: Date.now(),
+                    timestamp: new Date().toISOString(),
+                    operatore_id: operatoreCorrente ? operatoreCorrente.id : "AMMINISTRAZIONE",
+                    operatore_nome: opName,
+                    ospite_id: idOspite,
+                    ospite_nome: nomeOspite,
+                    tipo_operazione: "MODIFICA",
+                    modulo: "ARCHIVIO / RIAMMISSIONE",
+                    dettaglio: `Ripresa in carico dell'ospite in struttura dal ${dataIngresso}.`
+                };
+                fbDb.ref(`gestionale_db/audit_logs/${logEntry.id}`).set(logEntry);
+
+                alert(`✅ Riammissione completata!\n\n⚠️ ATTENZIONE MEDICO/INFERMIERISTICA: L'ospite è tornato visibile nel gestionale attivo. Verifica e aggiorna immediatamente la scheda B.I.N.A. e la prescrizione della terapia farmacologica.`);
+                document.getElementById('dettaglio-ospite').style.display = 'none';
+                ospiteSelezionato = null;
+                
+            }).catch(error => alert("❌ Errore durante la riammissione: " + error.message));
+        }
+
+        /* --- LOGICA ATTESTAZIONE DECESSO --- */
+        function apriAttestazioneDecesso() {
+            if(!ospiteSelezionato) return;
+            document.getElementById('dec-nome-ospite').innerText = ospiteSelezionato.nome;
+            document.getElementById('dec-data').value = ospiteSelezionato.data_dimissione || new Date().toISOString().split('T')[0];
+            document.getElementById('dec-ora').value = "";
+            document.getElementById('dec-luogo').value = "";
+            document.getElementById('modal-attestazione-decesso').style.display = 'flex';
+        }
+
+        function chiudiModalDecesso() {
+            document.getElementById('modal-attestazione-decesso').style.display = 'none';
+        }
+
+        function stampaAttestazioneDecesso() {
+            if(!ospiteSelezionato) return;
+            const dataDecesso = document.getElementById('dec-data').value;
+            const oraDecesso = document.getElementById('dec-ora').value;
+            const luogoDecesso = document.getElementById('dec-luogo').value.trim();
+
+            if(!oraDecesso || !luogoDecesso) return alert("Compila l'ora e il luogo esatto del decesso per procedere alla stampa.");
+
+            const dataNascita = ospiteSelezionato.dob ? formattaData(ospiteSelezionato.dob) : '-';
+            const comuneNascita = ospiteSelezionato.luogo_nascita?.comune || '-';
+            const provNascita = ospiteSelezionato.luogo_nascita?.prov || '-';
+            const indirizzoRes = ospiteSelezionato.residenza?.indirizzo || '-';
+            const comuneRes = ospiteSelezionato.residenza?.comune || '-';
+
+            const overlay = document.getElementById('stampa-overlay');
+            overlay.innerHTML = `
+                <div style="font-family: 'Times New Roman', serif; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000;">
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 35px;">
+                        <h1 style="margin: 0; font-size: 22pt; text-transform: uppercase;">Residenza Servita per Anziani "Ponte D'Oro"</h1>
+                        <p style="margin: 5px 0 0 0; font-size: 11pt;">Via Sardegna 10, 05100 Terni (TR) • USL Umbria 2</p>
+                    </div>
+                    
+                    <h2 style="text-align: center; text-decoration: underline; margin-bottom: 40px; font-size: 16pt;">ATTESTAZIONE DI DECESSO</h2>
+                    
+                    <p style="font-size: 12pt;">La Direzione della Residenza Servita "Ponte D'Oro" attesta ufficialmente che l'ospite:</p>
+                    
+                    <div style="background: #f8fafc; padding: 20px; border: 1px solid #000; margin-bottom: 25px; font-size: 12pt;">
+                        <p style="margin: 5px 0;"><strong>Nome e Cognome:</strong> ${ospiteSelezionato.nome}</p>
+                        <p style="margin: 5px 0;"><strong>Codice Fiscale:</strong> ${ospiteSelezionato.cf || '-'}</p>
+                        <p style="margin: 5px 0;"><strong>Data di Nascita:</strong> ${dataNascita} a ${comuneNascita} (${provNascita})</p>
+                        <p style="margin: 5px 0;"><strong>Residenza Fiscale:</strong> ${indirizzoRes}, ${comuneRes}</p>
+                    </div>
+
+                    <p style="font-size: 12pt;">È deceduto/a in data <strong>${formattaData(dataDecesso)}</strong> alle ore <strong>${oraDecesso}</strong>.</p>
+                    <p style="font-size: 12pt;"><strong>Luogo del decesso:</strong> ${luogoDecesso}</p>
+                    <p style="font-size: 12pt;"><strong>Data ingresso in struttura:</strong> ${formattaData(ospiteSelezionato.ingresso)}</p>
+
+                    <p style="margin-top: 40px; font-size: 11pt; text-align: justify;">
+                        Il presente documento viene rilasciato ai fini di legge per gli usi consentiti ed è generato dal registro digitale ufficiale della struttura ai sensi del Regolamento UE 2016/679 (GDPR) e della normativa socio-assistenziale regionale vigente. L'intera cartella clinica viene conseguentemente congelata e archiviata nello Storico della struttura.
+                    </p>
+
+                    <div style="display: flex; justify-content: space-between; margin-top: 80px; text-align: center; font-size: 12pt;">
+                        <div style="width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                            Luogo e Data Emissione<br>
+                            <strong>Terni, ${new Date().toLocaleDateString('it-IT')}</strong>
+                        </div>
+                        <div style="width: 40%; border-top: 1px solid #000; padding-top: 10px;">
+                            La Direzione / Titolare<br>
+                            <small>(Timbro e Firma)</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.classList.add('stampa-pdf-attiva');
+            setTimeout(() => {
+                window.print();
+                document.body.classList.remove('stampa-pdf-attiva');
+                chiudiModalDecesso();
+            }, 300);
+        }
+    </script>
+</body>
+</html>
